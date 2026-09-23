@@ -1,0 +1,57 @@
+<title>狗了个狗</title>
+<style>/*@CSS*/</style>
+<!--@BODY-->
+<div class="app" id="app">
+  <section class="screen home" id="home" aria-label="首页">
+    <header class="home-top">
+      <button class="icon-btn" id="btn-settings" type="button" aria-label="设置">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Zm8.4 2-1.9-.4a7 7 0 0 0-.6-1.5l1.1-1.6-1.9-1.9-1.6 1.1a7 7 0 0 0-1.5-.6l-.4-1.9h-2.7l-.4 1.9a7 7 0 0 0-1.5.6L5.3 5.2 3.4 7.1l1.1 1.6a7 7 0 0 0-.6 1.5l-1.9.4v2.7l1.9.4c.1.5.3 1 .6 1.5l-1.1 1.6 1.9 1.9 1.6-1.1c.5.3 1 .5 1.5.6l.4 1.9h2.7l.4-1.9c.5-.1 1-.3 1.5-.6l1.6 1.1 1.9-1.9-1.1-1.6c.3-.5.5-1 .6-1.5l1.9-.4v-2.7Z"/></svg>
+      </button>
+      <div class="online" id="online" hidden><i class="online-dot" aria-hidden="true"></i>在线狗友 <b id="online-count">1</b></div>
+      <button class="icon-btn" id="btn-help" type="button" aria-label="玩法说明"><b aria-hidden="true">?</b></button>
+    </header>
+    <h1 class="logo" id="logo"><span class="sr-only">狗了个狗</span></h1>
+    <div class="hero">
+      <div class="hero-dog" id="hero-dog" aria-hidden="true"></div>
+      <p class="hero-line" id="hero-line">今天也要汪汪通关</p>
+    </div>
+    <nav class="home-actions" aria-label="开始游戏">
+      <button class="btn btn-go btn-big" id="btn-daily" type="button"><span class="btn-title">今日挑战</span><span class="btn-sub" id="daily-sub">第 1 关 · 热身</span></button>
+      <div class="home-row">
+        <button class="btn btn-soft" id="btn-practice" type="button">自由练习</button>
+        <button class="btn btn-soft" id="btn-pack" type="button">我的狗群</button>
+      </div>
+    </nav>
+    <footer class="home-foot"><span class="team-chip" id="team-chip"></span><span class="streak" id="streak"></span></footer>
+  </section>
+
+  <section class="screen game" id="game" aria-label="对局" hidden>
+    <header class="bar">
+      <button class="icon-btn" id="btn-pause" type="button" aria-label="暂停">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>
+      </button>
+      <div class="bar-title" id="level-name">第 1 关</div>
+      <div class="bar-left">剩 <b id="tiles-left">0</b> 张</div>
+    </header>
+    <div class="stage" id="stage"></div>
+    <div class="slot" id="slot" role="list" aria-label="卡槽，最多 7 张">
+      <i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i>
+    </div>
+    <div class="dock">
+      <div class="mascot" id="mascot"><div class="bubble" id="bubble" role="status" hidden></div><div class="mascot-face" id="mascot-face"></div></div>
+      <div class="props">
+        <button class="prop" id="prop-moveOut" type="button" data-prop="moveOut"><span class="prop-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 20h14M12 16V4M7 9l5-5 5 5"/></svg></span><span class="prop-name">移出</span><i class="badge" id="badge-moveOut">1</i></button>
+        <button class="prop" id="prop-undo" type="button" data-prop="undo"><span class="prop-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></span><span class="prop-name">撤回</span><i class="badge" id="badge-undo">1</i></button>
+        <button class="prop" id="prop-shuffle" type="button" data-prop="shuffle"><span class="prop-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h4l10 10h4M3 17h4L17 7h4M18 4l3 3-3 3M18 14l3 3-3 3"/></svg></span><span class="prop-name">洗牌</span><i class="badge" id="badge-shuffle">1</i></button>
+      </div>
+    </div>
+    <div class="playfield" id="playfield"></div>
+  </section>
+
+  <div class="modal-layer" id="modal-layer" hidden>
+    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1"></div>
+  </div>
+  <canvas class="fx" id="fx" aria-hidden="true"></canvas>
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+</div>
+<script>/*@JS*/</script>
