@@ -1,0 +1,3882 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="狗了个狗：狗狗主题的三消堆叠小游戏，每天一关，看你能不能通关。">
+<meta name="theme-color" content="#9ed36a">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cg fill='%23E8913A' stroke='%233B2A1A' stroke-width='3'%3E%3Cellipse cx='32' cy='42' rx='14' ry='12'/%3E%3Ccircle cx='15' cy='26' r='6'/%3E%3Ccircle cx='25' cy='15' r='6'/%3E%3Ccircle cx='39' cy='15' r='6'/%3E%3Ccircle cx='49' cy='26' r='6'/%3E%3C/g%3E%3C/svg%3E">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<title>狗了个狗</title>
+<style>/* ===== 设计令牌：白天草坪（浅色，完整定义） ===== */
+:root {
+  --font: "PingFang SC", "HarmonyOS Sans SC", "MiSans", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", system-ui, sans-serif;
+  --bg: #9ed36a;
+  --grass-a: #a5d66f;
+  --grass-b: #98ce62;
+  --on-grass: #2f5d1e;
+  --ink: #3b2a1a;
+  --panel: #fffbf0;
+  --panel-2: #fff1d6;
+  --panel-text: #3b2a1a;
+  --panel-soft: #7a5a34;
+  --tile-face: #fffbf0;
+  --tile-side: #e2b878;
+  --tile-edge: #7a5a34;
+  --tile-shade: rgba(30, 43, 18, .48);
+  --wood: #8d5a2e;
+  --wood-edge: #5b3718;
+  --cell: #6b4220;
+  --wood-text: #fff3df;
+  --go: #ff8a1f;
+  --go-edge: #a94d00;
+  --go-text: #ffffff;
+  --soft: #ffffff;
+  --soft-text: #2f5d1e;
+  --prop: #45b7f0;
+  --prop-edge: #0b5c8e;
+  --badge: #ff5252;
+  --danger: #e53935;
+  --bubble: #ffffff;
+  --bubble-text: #5a3413;
+  --scrim: rgba(22, 34, 12, .55);
+  --hint: #ffd43b;
+  --moon: 0;
+  color-scheme: light;
+}
+
+/* ===== 夜晚后院（深色）：跟随系统；显式浅色时不生效 ===== */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1e3321;
+    --grass-a: #223b22;
+    --grass-b: #1d341e;
+    --on-grass: #d8ecc4;
+    --ink: #140d06;
+    --panel: #2d261e;
+    --panel-2: #3a3027;
+    --panel-text: #f6ead6;
+    --panel-soft: #cdb896;
+    --tile-face: #f2e8d2;
+    --tile-side: #b48c55;
+    --tile-edge: #4a3520;
+    --tile-shade: rgba(4, 10, 4, .56);
+    --wood: #6a4223;
+    --wood-edge: #2c190a;
+    --cell: #4a2c14;
+    --wood-text: #f3e2c6;
+    --go: #f07e16;
+    --go-edge: #6e3200;
+    --soft: #3b4b2f;
+    --soft-text: #e5f3d3;
+    --prop: #2e92c7;
+    --prop-edge: #093a5c;
+    --badge: #ff5a5a;
+    --danger: #ff6b5e;
+    --bubble: #fff8ea;
+    --scrim: rgba(0, 0, 0, .6);
+    --hint: #ffe066;
+    --moon: 1;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1e3321;
+  --grass-a: #223b22;
+  --grass-b: #1d341e;
+  --on-grass: #d8ecc4;
+  --ink: #140d06;
+  --panel: #2d261e;
+  --panel-2: #3a3027;
+  --panel-text: #f6ead6;
+  --panel-soft: #cdb896;
+  --tile-face: #f2e8d2;
+  --tile-side: #b48c55;
+  --tile-edge: #4a3520;
+  --tile-shade: rgba(4, 10, 4, .56);
+  --wood: #6a4223;
+  --wood-edge: #2c190a;
+  --cell: #4a2c14;
+  --wood-text: #f3e2c6;
+  --go: #f07e16;
+  --go-edge: #6e3200;
+  --soft: #3b4b2f;
+  --soft-text: #e5f3d3;
+  --prop: #2e92c7;
+  --prop-edge: #093a5c;
+  --badge: #ff5a5a;
+  --danger: #ff6b5e;
+  --bubble: #fff8ea;
+  --scrim: rgba(0, 0, 0, .6);
+  --hint: #ffe066;
+  --moon: 1;
+  color-scheme: dark;
+}
+
+/* ===== 基础 ===== */
+*, *::before, *::after { box-sizing: border-box; }
+html { box-sizing: border-box; height: 100%; }
+body {
+  height: 100%;
+  margin: 0;
+  background-color: var(--bg);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='%23000' fill-opacity='.06'%3E%3Cellipse cx='30' cy='38' rx='9' ry='7'/%3E%3Ccircle cx='21' cy='27' r='3.6'/%3E%3Ccircle cx='27' cy='21' r='3.6'/%3E%3Ccircle cx='34' cy='21' r='3.6'/%3E%3Ccircle cx='40' cy='27' r='3.6'/%3E%3Cellipse cx='88' cy='96' rx='9' ry='7'/%3E%3Ccircle cx='79' cy='85' r='3.6'/%3E%3Ccircle cx='85' cy='79' r='3.6'/%3E%3Ccircle cx='92' cy='79' r='3.6'/%3E%3Ccircle cx='98' cy='85' r='3.6'/%3E%3C/g%3E%3C/svg%3E"),
+    repeating-linear-gradient(180deg, var(--grass-a) 0 40px, var(--grass-b) 40px 80px);
+  color: var(--panel-text);
+  font-family: var(--font);
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+button { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+:focus-visible { outline: 3px solid var(--hint); outline-offset: 2px; }
+
+/* ===== 外壳：手机竖屏，桌面居中成手机比例 ===== */
+.app { position: relative; height: 100%; max-width: 480px; margin: 0 auto; overflow: hidden; isolation: isolate; }
+.app::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 200px;
+  pointer-events: none;
+  opacity: var(--moon);
+  background:
+    radial-gradient(circle at 84% 44px, #fff6d8 0 16px, rgba(255, 246, 216, .22) 17px 30px, transparent 31px),
+    radial-gradient(circle at 12% 30px, #ffffff 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 30% 72px, #ffffff 0 1.2px, transparent 2.5px),
+    radial-gradient(circle at 54% 22px, #ffffff 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 66% 92px, #ffffff 0 1px, transparent 2.5px),
+    radial-gradient(circle at 94% 118px, #ffffff 0 1.3px, transparent 2.5px);
+}
+@media (min-width: 720px) and (min-height: 700px) {
+  .app { height: calc(100% - 40px); margin-block: 20px; border: 3px solid var(--ink); border-radius: 30px; box-shadow: 0 10px 0 var(--ink); background: inherit; }
+}
+.screen { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 10px 16px 12px; }
+
+/* ===== 通用按钮 ===== */
+.icon-btn {
+  width: 44px; height: 44px; padding: 0;
+  display: grid; place-items: center;
+  border: 3px solid var(--ink); border-radius: 14px;
+  background: var(--soft); color: var(--soft-text);
+  box-shadow: 0 4px 0 var(--ink);
+  cursor: pointer; font-size: 22px; font-weight: 900;
+}
+.icon-btn svg { width: 22px; height: 22px; fill: currentColor; }
+.icon-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.btn {
+  min-height: 48px; padding: 10px 16px;
+  border: 3px solid var(--ink); border-radius: 18px;
+  font-size: 18px; font-weight: 800; letter-spacing: .04em;
+  box-shadow: 0 5px 0 var(--ink);
+  cursor: pointer;
+  transition: transform .08s, box-shadow .08s;
+}
+.btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+.btn:disabled { cursor: default; filter: grayscale(.6); }
+.btn-go { background: var(--go); color: var(--go-text); text-shadow: 0 2px 0 var(--go-edge); }
+.btn-soft { background: var(--soft); color: var(--soft-text); }
+
+/* ===== 首页 ===== */
+.home { align-items: center; gap: 8px; }
+.home-top { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; }
+.online {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px;
+  background: var(--panel); color: var(--panel-text);
+  border: 2px solid var(--ink); font-size: 14px; font-weight: 700;
+}
+.online b { font-variant-numeric: tabular-nums; }
+.online-dot { width: 8px; height: 8px; border-radius: 50%; background: #3ccf4e; box-shadow: 0 0 0 3px rgba(60, 207, 78, .25); }
+.logo { margin: 2px 0 0; width: min(94%, 380px); line-height: 0; }
+.logo svg { width: 100%; height: auto; overflow: visible; }
+.hero { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.hero-dog { width: min(46vw, 190px); max-height: 100%; aspect-ratio: 1; animation: bob 2.4s ease-in-out infinite; }
+.hero-dog svg { width: 100%; height: 100%; display: block; }
+.hero-line { margin: 0; color: var(--on-grass); font-weight: 800; font-size: 17px; letter-spacing: .06em; text-align: center; text-wrap: balance; }
+.home-actions { width: 100%; display: grid; gap: 12px; }
+.home-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.btn-big { display: grid; gap: 2px; padding: 12px 16px 10px; }
+.btn-title { font-size: 26px; letter-spacing: .1em; }
+.btn-sub { font-size: 14px; font-weight: 700; letter-spacing: .04em; color: rgba(255, 255, 255, .92); }
+.home-foot { width: 100%; min-height: 34px; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--on-grass); font-size: 14px; font-weight: 800; }
+.team-chip { display: inline-flex; align-items: center; gap: 6px; }
+.team-chip svg { width: 30px; height: 30px; }
+
+/* ===== 对局 ===== */
+.bar { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px; min-height: 52px; }
+.bar-title {
+  justify-self: center; padding: 5px 18px; border-radius: 999px;
+  background: var(--panel); color: var(--panel-text); border: 3px solid var(--ink);
+  font-size: 18px; font-weight: 900; letter-spacing: .06em; white-space: nowrap;
+}
+.bar-left {
+  padding: 5px 12px; border-radius: 999px;
+  background: var(--wood); color: var(--wood-text); border: 2px solid var(--wood-edge);
+  font-size: 14px; font-weight: 800; white-space: nowrap;
+}
+.bar-left b { font-variant-numeric: tabular-nums; }
+.stage { position: relative; flex: 1 1 auto; min-height: 0; margin-top: 4px; }
+.slot {
+  position: relative; align-self: center; width: var(--slot-w, 100%); max-width: 100%;
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 7px;
+  border-radius: 16px; background: var(--wood); border: 3px solid var(--wood-edge);
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, .16), 0 4px 0 var(--wood-edge);
+}
+.slot-cell { display: block; aspect-ratio: 1 / 1.12; border-radius: 10px; background: var(--cell); box-shadow: inset 0 3px 0 rgba(0, 0, 0, .25); }
+.slot.is-danger { border-color: var(--danger); box-shadow: inset 0 3px 0 rgba(255, 255, 255, .16), 0 4px 0 var(--danger), 0 0 0 3px rgba(229, 57, 53, .35); animation: throb 1.2s ease-in-out infinite; }
+.slot.is-shake { animation: shake .5s ease-in-out; }
+.dock { display: flex; align-items: center; gap: 10px; padding: 12px 0 2px; min-height: 86px; }
+.mascot { position: relative; width: 64px; height: 64px; flex: none; }
+.mascot-face { width: 64px; height: 64px; }
+.mascot-face svg { width: 100%; height: 100%; display: block; }
+.bubble {
+  position: absolute; left: 4px; bottom: calc(100% + 10px); z-index: 1200;
+  width: max-content; max-width: min(260px, 72vw);
+  padding: 8px 12px; border-radius: 14px;
+  background: var(--bubble); color: var(--bubble-text); border: 2px solid var(--ink);
+  font-size: 14px; font-weight: 700; line-height: 1.45;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, .2);
+  animation: pop-in .2s ease-out;
+}
+.bubble::after { content: ""; position: absolute; left: 22px; top: 100%; border: 8px solid transparent; border-top-color: var(--ink); }
+.props { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.prop {
+  position: relative; display: grid; justify-items: center; gap: 2px;
+  padding: 8px 0 6px; border-radius: 18px;
+  border: 3px solid var(--prop-edge); background: var(--prop); color: #ffffff;
+  font-size: 14px; font-weight: 800; box-shadow: 0 4px 0 var(--prop-edge); cursor: pointer;
+}
+.prop:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--prop-edge); }
+.prop-ic svg { width: 26px; height: 26px; display: block; fill: none; stroke: #ffffff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.prop .badge {
+  position: absolute; top: -9px; right: -6px; min-width: 22px; height: 22px; padding: 0 5px;
+  border-radius: 11px; border: 2px solid #ffffff; background: var(--badge); color: #ffffff;
+  font-style: normal; font-size: 13px; font-weight: 900; line-height: 18px; text-align: center;
+}
+.prop.is-idle { filter: saturate(.55); }
+.prop.is-empty { filter: grayscale(.9); }
+.prop.is-empty .badge { background: #8a8a8a; }
+.prop.is-deny { animation: shake .3s ease-in-out; }
+
+/* ===== 牌（全部在 playfield 中，靠 transform 定位） ===== */
+.playfield { position: absolute; inset: 0; pointer-events: none; --t: 48px; }
+.tile {
+  position: absolute; left: 0; top: 0;
+  width: var(--t); height: calc(var(--t) * 1.12);
+  padding: 0; margin: 0; border: 0; background: none;
+  transform-origin: 0 0; pointer-events: auto; cursor: pointer;
+}
+.tile-face {
+  position: absolute; left: 0; top: 0; width: var(--t); height: var(--t);
+  display: grid; place-items: center;
+  border: max(1.5px, calc(var(--t) * .04)) solid var(--tile-edge); border-radius: 18%;
+  background: var(--tile-face);
+  box-shadow: 0 calc(var(--t) * .12) 0 var(--tile-side), 0 calc(var(--t) * .12) 0 max(1.5px, calc(var(--t) * .04)) var(--tile-edge);
+  transition: translate .12s ease-out;
+}
+.tile-face svg { width: 80%; height: 80%; display: block; pointer-events: none; }
+.tile::after {
+  content: ""; position: absolute; left: 0; top: 0;
+  width: var(--t); height: calc(var(--t) * 1.12); border-radius: 18%;
+  background: var(--tile-shade); opacity: 0; pointer-events: none;
+  transition: opacity .25s ease-out;
+}
+.tile.is-covered { cursor: default; }
+.tile.is-covered::after { opacity: 1; }
+.tile.is-slot { cursor: default; }
+.tile.is-flying { z-index: 1000 !important; }
+.tile.is-hint .tile-face { animation: hint 1s ease-in-out infinite; }
+@media (hover: hover) {
+  .tile.is-free:hover .tile-face { translate: 0 -3px; }
+}
+
+/* ===== 弹层 ===== */
+.modal-layer { position: absolute; inset: 0; z-index: 3000; display: grid; place-items: center; padding: 16px; background: var(--scrim); animation: fade-in .18s ease-out; }
+.modal {
+  width: min(100%, 400px); max-height: 100%; overflow-y: auto;
+  padding: 18px 18px 16px; border-radius: 24px;
+  background: var(--panel); color: var(--panel-text);
+  border: 3px solid var(--ink); box-shadow: 0 8px 0 var(--ink);
+  animation: pop-in .26s cubic-bezier(.2, 1.4, .4, 1);
+  -webkit-user-select: text; user-select: text;
+}
+.modal:focus { outline: none; }
+.modal-title { margin: 0 0 10px; font-size: 24px; font-weight: 900; letter-spacing: .06em; text-align: center; text-wrap: balance; }
+.modal-body { font-size: 15px; line-height: 1.65; }
+.modal-body p { margin: 0 0 8px; }
+.modal-actions { display: grid; gap: 10px; margin-top: 16px; }
+.modal-actions.two { grid-template-columns: 1fr 1fr; }
+.modal-dog { width: 104px; height: 104px; margin: -4px auto 6px; }
+.modal-dog svg { width: 100%; height: 100%; display: block; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 12px; }
+.stat { display: grid; gap: 2px; padding: 8px 6px; border-radius: 14px; background: var(--panel-2); border: 2px solid var(--ink); text-align: center; }
+.stat small { font-size: 12px; color: var(--panel-soft); font-weight: 700; }
+.stat b { font-size: 20px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.card-wrap { display: grid; place-items: center; aspect-ratio: 3 / 4; max-height: 34vh; margin: 0 auto; border-radius: 14px; border: 2px solid var(--ink); background: var(--panel-2); overflow: hidden; color: var(--panel-soft); font-size: 13px; }
+.card-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; -webkit-user-select: auto; user-select: auto; -webkit-touch-callout: default; }
+.card-tip { margin: 6px 0 0; text-align: center; font-size: 12px; color: var(--panel-soft); }
+.roast { margin-top: 10px; padding: 10px 12px; border-radius: 14px; background: var(--panel-2); border: 2px dashed var(--panel-soft); font-size: 15px; line-height: 1.6; white-space: pre-wrap; min-height: 3.2em; }
+.rules { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.rules li { display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: start; }
+.rules svg { width: 30px; height: 30px; }
+.choice-list { display: grid; gap: 10px; }
+.choice { display: grid; gap: 2px; text-align: left; padding: 10px 14px; border-radius: 16px; border: 3px solid var(--ink); background: var(--panel-2); color: var(--panel-text); box-shadow: 0 4px 0 var(--ink); cursor: pointer; }
+.choice:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.choice b { font-size: 18px; }
+.choice small { font-size: 13px; color: var(--panel-soft); font-weight: 600; }
+.team-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.team { display: grid; justify-items: center; gap: 2px; padding: 8px 4px; border-radius: 16px; border: 3px solid var(--ink); background: var(--panel-2); color: var(--panel-text); cursor: pointer; box-shadow: 0 3px 0 var(--ink); }
+.team svg { width: 64px; height: 64px; display: block; }
+.team b { font-size: 14px; }
+.team small { font-size: 12px; color: var(--panel-soft); font-variant-numeric: tabular-nums; }
+.team.is-on { background: var(--go); color: var(--go-text); }
+.team.is-on small { color: var(--go-text); }
+.pack-stats { margin: 12px 0 0; text-align: center; font-size: 14px; color: var(--panel-soft); font-weight: 700; }
+.switches { display: grid; gap: 10px; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 16px; font-weight: 800; }
+.switch { position: relative; width: 56px; height: 32px; padding: 0; border-radius: 999px; border: 3px solid var(--ink); background: var(--panel-2); cursor: pointer; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%; background: var(--panel-soft); transition: transform .15s; }
+.switch[aria-pressed="true"] { background: var(--go); }
+.switch[aria-pressed="true"]::after { transform: translateX(24px); background: #ffffff; }
+.intro-big { margin: 4px 0 10px; text-align: center; font-size: 44px; font-weight: 900; letter-spacing: .08em; color: var(--danger); text-shadow: 0 3px 0 var(--ink); animation: throb 1s ease-in-out infinite; }
+
+/* ===== 提示、连消文字、特效层 ===== */
+.fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2500; }
+.toasts { position: absolute; left: 12px; right: 12px; top: 62px; z-index: 2600; display: grid; justify-items: center; gap: 8px; pointer-events: none; }
+.toast { max-width: 100%; padding: 8px 14px; border-radius: 999px; background: var(--panel); color: var(--panel-text); border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink); font-size: 14px; font-weight: 800; text-align: center; animation: toast 2.6s ease forwards; }
+.combo {
+  position: absolute; z-index: 2400; transform: translate(-50%, -50%);
+  color: #ffffff; font-size: 30px; font-weight: 900; letter-spacing: .06em; white-space: nowrap; pointer-events: none;
+  text-shadow: 0 3px 0 #3b2a1a, 2px 2px 0 #3b2a1a, -2px 2px 0 #3b2a1a, 2px -2px 0 #3b2a1a, -2px -2px 0 #3b2a1a;
+  animation: combo .95s ease-out forwards;
+}
+
+/* ===== 动画 ===== */
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes shake { 0%, 100% { translate: 0 0; } 20% { translate: -6px 0; } 40% { translate: 6px 0; } 60% { translate: -4px 0; } 80% { translate: 4px 0; } }
+@keyframes throb { 0%, 100% { scale: 1; } 50% { scale: 1.02; } }
+@keyframes pop-in { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes toast { 0% { opacity: 0; transform: translateY(-8px); } 10%, 80% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-6px); } }
+@keyframes combo { 0% { opacity: 0; scale: .5; } 20% { opacity: 1; scale: 1.15; } 70% { opacity: 1; scale: 1; translate: 0 -24px; } 100% { opacity: 0; translate: 0 -40px; } }
+@keyframes hint { 0%, 100% { box-shadow: 0 calc(var(--t) * .12) 0 var(--tile-side), 0 calc(var(--t) * .12) 0 2px var(--tile-edge), 0 0 0 0 var(--hint); } 50% { box-shadow: 0 calc(var(--t) * .12) 0 var(--tile-side), 0 calc(var(--t) * .12) 0 2px var(--tile-edge), 0 0 0 6px var(--hint); } }
+
+/* ===== 减少动态 ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <section class="screen home" id="home" aria-label="首页">
+    <header class="home-top">
+      <button class="icon-btn" id="btn-settings" type="button" aria-label="设置">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Zm8.4 2-1.9-.4a7 7 0 0 0-.6-1.5l1.1-1.6-1.9-1.9-1.6 1.1a7 7 0 0 0-1.5-.6l-.4-1.9h-2.7l-.4 1.9a7 7 0 0 0-1.5.6L5.3 5.2 3.4 7.1l1.1 1.6a7 7 0 0 0-.6 1.5l-1.9.4v2.7l1.9.4c.1.5.3 1 .6 1.5l-1.1 1.6 1.9 1.9 1.6-1.1c.5.3 1 .5 1.5.6l.4 1.9h2.7l.4-1.9c.5-.1 1-.3 1.5-.6l1.6 1.1 1.9-1.9-1.1-1.6c.3-.5.5-1 .6-1.5l1.9-.4v-2.7Z"/></svg>
+      </button>
+      <div class="online" id="online" hidden><i class="online-dot" aria-hidden="true"></i>在线狗友 <b id="online-count">1</b></div>
+      <button class="icon-btn" id="btn-help" type="button" aria-label="玩法说明"><b aria-hidden="true">?</b></button>
+    </header>
+    <h1 class="logo" id="logo"><span class="sr-only">狗了个狗</span></h1>
+    <div class="hero">
+      <div class="hero-dog" id="hero-dog" aria-hidden="true"></div>
+      <p class="hero-line" id="hero-line">今天也要汪汪通关</p>
+    </div>
+    <nav class="home-actions" aria-label="开始游戏">
+      <button class="btn btn-go btn-big" id="btn-daily" type="button"><span class="btn-title">今日挑战</span><span class="btn-sub" id="daily-sub">第 1 关 · 热身</span></button>
+      <div class="home-row">
+        <button class="btn btn-soft" id="btn-practice" type="button">自由练习</button>
+        <button class="btn btn-soft" id="btn-pack" type="button">我的狗群</button>
+      </div>
+    </nav>
+    <footer class="home-foot"><span class="team-chip" id="team-chip"></span><span class="streak" id="streak"></span></footer>
+  </section>
+
+  <section class="screen game" id="game" aria-label="对局" hidden>
+    <header class="bar">
+      <button class="icon-btn" id="btn-pause" type="button" aria-label="暂停">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>
+      </button>
+      <div class="bar-title" id="level-name">第 1 关</div>
+      <div class="bar-left">剩 <b id="tiles-left">0</b> 张</div>
+    </header>
+    <div class="stage" id="stage"></div>
+    <div class="slot" id="slot" role="list" aria-label="卡槽，最多 7 张">
+      <i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i>
+    </div>
+    <div class="dock">
+      <div class="mascot" id="mascot"><div class="bubble" id="bubble" role="status" hidden></div><div class="mascot-face" id="mascot-face"></div></div>
+      <div class="props">
+        <button class="prop" id="prop-moveOut" type="button" data-prop="moveOut"><span class="prop-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 20h14M12 16V4M7 9l5-5 5 5"/></svg></span><span class="prop-name">移出</span><i class="badge" id="badge-moveOut">1</i></button>
+        <button class="prop" id="prop-undo" type="button" data-prop="undo"><span class="prop-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></span><span class="prop-name">撤回</span><i class="badge" id="badge-undo">1</i></button>
+        <button class="prop" id="prop-shuffle" type="button" data-prop="shuffle"><span class="prop-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h4l10 10h4M3 17h4L17 7h4M18 4l3 3-3 3M18 14l3 3-3 3"/></svg></span><span class="prop-name">洗牌</span><i class="badge" id="badge-shuffle">1</i></button>
+      </div>
+    </div>
+    <div class="playfield" id="playfield"></div>
+  </section>
+
+  <div class="modal-layer" id="modal-layer" hidden>
+    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1"></div>
+  </div>
+  <canvas class="fx" id="fx" aria-hidden="true"></canvas>
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+</div>
+<script>(() => {
+'use strict';
+// ---- core/rng.js ----
+const __m_core_rng_js = (() => {
+
+// 可复现随机数：xmur3 字符串哈希 + mulberry32 生成器（同种子同序列，便于每日同关与回放）
+
+function hashSeed(str) {
+  let h = 1779033703 ^ str.length;
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  h = Math.imul(h ^ (h >>> 16), 2246822507);
+  h = Math.imul(h ^ (h >>> 13), 3266489909);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+function createRng(seed) {
+  let a = seed >>> 0;
+  const next = () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const int = (n) => Math.floor(next() * n);
+  return {
+    next,
+    int,
+    pick: (arr) => arr[int(arr.length)],
+    shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = int(i + 1);
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    },
+    fork: (label) => createRng(hashSeed(`${label}:${Math.floor(next() * 4294967296)}`)),
+  };
+}
+return { hashSeed, createRng };
+})();
+// ---- core/layout.js ----
+const __m_core_layout_js = (() => {
+
+// 几何布局：逐层生成左右对称的图案并配平张数，再加两侧盲盒堆；只产出坐标，不含图案
+const EPS = 1e-6;
+const OFFSETS = [[0, 0], [0.5, 0], [0, 0.5], [0.5, 0.5]];
+
+const PATTERNS = ['slab', 'checker', 'holes', 'ring', 'cross', 'stripesV', 'stripesH'];
+const STACK_STEP = 0.06;
+const STACK_GAP = 0.35;
+
+// 左右对称的图案掩码：只计算左半边（含中轴列），再镜像到右半边
+function patternMask(type, w, h, rng, density = 0.5) {
+  const half = Math.ceil(w / 2);
+  const mask = Array.from({ length: h }, () => new Array(w).fill(false));
+  for (let r = 0; r < h; r++) {
+    for (let c = 0; c < half; c++) {
+      let on;
+      switch (type) {
+        case 'slab': on = true; break;
+        case 'checker': on = (r + c) % 2 === 0; break;
+        case 'holes': on = !(r % 2 === 1 && c % 2 === 1); break;
+        case 'ring': on = r === 0 || r === h - 1 || c === 0; break;
+        case 'cross': on = Math.abs(r - (h - 1) / 2) < 1 || c === half - 1; break;
+        case 'stripesV': on = c % 2 === 0; break;
+        case 'stripesH': on = r % 2 === 0; break;
+        default: on = rng.next() < density;
+      }
+      mask[r][c] = on;
+      mask[r][w - 1 - c] = on;
+    }
+  }
+  return mask;
+}
+
+function countOn(mask) {
+  let n = 0;
+  for (const row of mask) for (const v of row) if (v) n++;
+  return n;
+}
+
+// 每层可用区域：越往上向中心收缩；偏移 0.5 时少放一列/一行，保证左右对称
+function region(cfg, z, ox, oy) {
+  const { cols, rows, baseInset = 0, shrink = 0.25 } = cfg;
+  const maxInset = Math.floor((Math.min(cols, rows) - 2) / 2);
+  const inset = Math.min(baseInset + Math.floor(z * shrink), maxInset);
+  return {
+    x0: inset + ox,
+    y0: inset + oy,
+    w: Math.floor(cols - 2 * inset - ox + EPS),
+    h: Math.floor(rows - 2 * inset - oy + EPS),
+  };
+}
+
+// 各层目标张数：底层多、顶层少（taper 控制坡度），总和恰为 boardTarget
+function layerTargets(boardTarget, layers, taper) {
+  const weights = Array.from({ length: layers }, (_, z) => 1 + taper * (layers - 1 - z));
+  const sum = weights.reduce((a, b) => a + b, 0);
+  const targets = weights.map((w) => Math.floor((boardTarget * w) / sum));
+  let rest = boardTarget - targets.reduce((a, b) => a + b, 0);
+  for (let z = 0; rest > 0; z = (z + 1) % layers, rest--) targets[z]++;
+  return targets;
+}
+
+// 用对称单元（镜像两格一组，中轴列一格一组）把掩码增删到恰好 target 格
+function adjustMask(mask, target, rng) {
+  const h = mask.length;
+  const w = mask[0].length;
+  let n = countOn(mask);
+  const units = [];
+  for (let r = 0; r < h; r++) {
+    for (let c = 0; c < Math.ceil(w / 2); c++) units.push({ r, c, m: w - 1 - c, size: c === w - 1 - c ? 1 : 2 });
+  }
+  rng.shuffle(units);
+  for (const u of units) {
+    if (n === target) break;
+    const on = mask[u.r][u.c];
+    if (n > target && on && (u.size === 1 || n - target >= 2)) {
+      mask[u.r][u.c] = false; mask[u.r][u.m] = false; n -= u.size;
+    } else if (n < target && !on && (u.size === 1 || target - n >= 2)) {
+      mask[u.r][u.c] = true; mask[u.r][u.m] = true; n += u.size;
+    }
+  }
+  // 偶数宽度没有中轴列时可能还差 1 格：单独翻转一格（牺牲一处对称）
+  for (let r = 0; r < h && n !== target; r++) {
+    for (let c = 0; c < w && n !== target; c++) {
+      if (n > target && mask[r][c]) { mask[r][c] = false; n--; }
+      else if (n < target && !mask[r][c]) { mask[r][c] = true; n++; }
+    }
+  }
+}
+
+// 选一个自然张数接近目标的结构化图案（±35%），没有就用随机密度图案，然后配平
+function pickCells(spec, target, rng, patterns) {
+  const { w, h } = spec;
+  const options = [];
+  for (const type of patterns) {
+    const mask = patternMask(type, w, h, rng);
+    const n = countOn(mask);
+    if (n > 0 && Math.abs(n - target) <= Math.max(2, target * 0.35)) options.push(mask);
+  }
+  const mask = options.length ? rng.pick(options) : patternMask('random', w, h, rng, target / (w * h));
+  adjustMask(mask, target, rng);
+  const cells = [];
+  for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) if (mask[r][c]) cells.push({ r, c });
+  return cells;
+}
+
+function buildLayout(cfg, rng) {
+  const { cols, rows, layers, stackSize = 0, total, taper = 0.1, patterns = PATTERNS } = cfg;
+  const boardTarget = total - 2 * stackSize;
+  if (boardTarget < 1) throw new Error('布局张数不足');
+  const targets = layerTargets(boardTarget, layers, taper);
+
+  // 先定每层的偏移与区域（相邻层偏移必不同，形成半张错位）
+  const specs = [];
+  let prev = -1;
+  for (let z = 0; z < layers; z++) {
+    let oi = rng.int(4);
+    if (oi === prev) oi = (oi + 1 + rng.int(3)) % 4;
+    prev = oi;
+    const [ox, oy] = OFFSETS[oi];
+    const reg = region(cfg, z, ox, oy);
+    specs.push({ z, ...reg, cap: reg.w * reg.h });
+  }
+
+  // 容量不足的层把缺口转给有余量的层（从底层往上找）
+  let overflow = 0;
+  specs.forEach((s, z) => {
+    if (targets[z] > s.cap) { overflow += targets[z] - s.cap; targets[z] = s.cap; }
+  });
+  for (let z = 0; overflow > 0 && z < layers; z++) {
+    const add = Math.min(overflow, specs[z].cap - targets[z]);
+    targets[z] += add;
+    overflow -= add;
+  }
+  if (overflow > 0) throw new Error('布局容量不足，请减少张数或增加层数');
+
+  const tiles = [];
+  for (const s of specs) {
+    for (const { r, c } of pickCells(s, targets[s.z], rng, patterns)) {
+      tiles.push({ x: s.x0 + c, y: s.y0 + r, z: s.z, group: 'main' });
+    }
+  }
+  for (let i = 0; i < stackSize; i++) {
+    tiles.push({ x: i * STACK_STEP, y: rows + STACK_GAP, z: i, group: 'stackL' });
+    tiles.push({ x: cols - 1 - i * STACK_STEP, y: rows + STACK_GAP, z: i, group: 'stackR' });
+  }
+  return tiles;
+}
+
+// 覆盖关系：B 比 A 高且两者在 x、y 上都有正面积重叠，则 B 压住 A
+function computeCovers(tiles) {
+  const n = tiles.length;
+  const coveredBy = Array.from({ length: n }, () => []);
+  const covers = Array.from({ length: n }, () => []);
+  for (let i = 0; i < n; i++) {
+    const a = tiles[i];
+    for (let j = 0; j < n; j++) {
+      const b = tiles[j];
+      if (b.z > a.z && Math.abs(b.x - a.x) < 1 - EPS && Math.abs(b.y - a.y) < 1 - EPS) {
+        coveredBy[i].push(j);
+        covers[j].push(i);
+      }
+    }
+  }
+  return { coveredBy, covers };
+}
+return { PATTERNS, STACK_STEP, STACK_GAP, patternMask, buildLayout, computeCovers };
+})();
+// ---- core/assign.js ----
+const __m_core_assign_js = (() => {
+
+// 沿模拟拿牌路径分配图案：维护虚拟卡槽、只做安全选择，从而保证存在一条不用道具的解
+// 一次分配尝试：模拟拿牌，维护虚拟卡槽，只做「安全」的选择
+function tryAssign({ n, coveredBy, quota, kOpen, pContinue, pDig = 0, rng, initialSlot = [], fixed = null }) {
+  const kinds = new Array(n).fill(-1);
+  const blockers = coveredBy.map((a) => a.length);
+  const covers = Array.from({ length: n }, () => []);
+  coveredBy.forEach((arr, i) => arr.forEach((j) => covers[j].push(i)));
+  const free = [];
+  for (let i = 0; i < n; i++) if (blockers[i] === 0) free.push(i);
+  rng.shuffle(free); // 打乱初始顺序，否则 pDig 会系统性地先挖下标靠后的右侧盲盒堆
+  const remaining = new Map(quota);
+  const open = new Map();
+  let occupancy = 0;
+  for (const k of initialSlot) { open.set(k, (open.get(k) || 0) + 1); occupancy++; }
+  const cols = fixed ? fixed.map((c) => [...c]) : [];
+  const path = [];
+  const steps = n + cols.reduce((s, c) => s + c.length, 0);
+
+  const place = (k) => {
+    const c = (open.get(k) || 0) + 1;
+    if (c === 3) { open.delete(k); occupancy -= 2; } else { open.set(k, c); occupancy++; }
+  };
+  // 放入 k 之后仍安全：不超过 6 张；若恰好 6 张，必须至少有一个对子可补齐
+  const safeAfter = (k) => {
+    const c = open.get(k) || 0;
+    if (c === 2) return true;
+    const occ = occupancy + 1;
+    if (occ > 6) return false;
+    if (occ < 6 || c === 1) return true;
+    for (const v of open.values()) if (v === 2) return true;
+    return false;
+  };
+  const chooseKind = () => {
+    const pairs = [];
+    const singles = [];
+    const fresh = [];
+    for (const [k, left] of remaining) {
+      if (left <= 0 || !safeAfter(k)) continue;
+      const c = open.get(k) || 0;
+      if (c === 2) pairs.push(k);
+      else if (c === 1) singles.push(k);
+      else if (open.size < kOpen) fresh.push(k);
+    }
+    if (occupancy >= 5 && pairs.length) return rng.pick(pairs);
+    const cont = pairs.concat(singles);
+    if (cont.length && (!fresh.length || rng.next() < pContinue)) return rng.pick(cont);
+    if (fresh.length) return rng.pick(fresh);
+    return -1;
+  };
+
+  for (let step = 0; step < steps; step++) {
+    // 移出区栈顶若能延续已打开的图案，优先拿它
+    let bufCol = -1;
+    for (let ci = 0; ci < cols.length; ci++) {
+      const col = cols[ci];
+      if (col.length && open.has(col[col.length - 1]) && safeAfter(col[col.length - 1])) { bufCol = ci; break; }
+    }
+    if (bufCol < 0 && !free.length) {
+      for (let ci = 0; ci < cols.length; ci++) {
+        const col = cols[ci];
+        if (col.length && safeAfter(col[col.length - 1])) { bufCol = ci; break; }
+      }
+    }
+    if (bufCol >= 0) {
+      place(cols[bufCol].pop());
+      continue;
+    }
+    if (!free.length) return null;
+    // pDig：按概率优先拿「最近刚露出来」的牌，让解路径往下挖，同图案不容易同时露在表面
+    const i = rng.next() < pDig ? free.pop() : free.splice(rng.int(free.length), 1)[0];
+    const k = chooseKind();
+    if (k < 0) return null;
+    kinds[i] = k;
+    remaining.set(k, remaining.get(k) - 1);
+    place(k);
+    path.push(i);
+    for (const j of covers[i]) if (--blockers[j] === 0) free.push(j);
+  }
+  return occupancy === 0 ? { kinds, path } : null;
+}
+
+function assignKinds(opts) {
+  const tries = opts.maxTries ?? 1;
+  for (let t = 0; t < tries; t++) {
+    const res = tryAssign(opts);
+    if (res) return res;
+  }
+  return null;
+}
+return { assignKinds };
+})();
+// ---- core/game.js ----
+const __m_core_game_js = (() => {
+const { hashSeed, createRng } = __m_core_rng_js;
+const { computeCovers } = __m_core_layout_js;
+const { assignKinds } = __m_core_assign_js;
+// 对局状态机：拿牌、卡槽、消除、胜负、道具与复活；操作返回事件数组，非法操作返回 null
+
+
+
+
+const SLOT_SIZE = 7;
+const BUFFER_COLS = 3;
+const COMBO_WINDOW = 3;
+
+function createGame(level) {
+  const tiles = level.tiles.map((t) => ({ id: t.id, x: t.x, y: t.y, z: t.z, group: t.group, kind: t.kind, zone: 'board', col: -1 }));
+  const { coveredBy, covers } = computeCovers(tiles);
+  const blockers = coveredBy.map((a) => a.length);
+  const slot = [];
+  const buffer = Array.from({ length: BUFFER_COLS }, () => []);
+  const props = { moveOut: 1, undo: 1, shuffle: 1, revive: 1 };
+  const used = { moveOut: 0, undo: 0, shuffle: 0, revive: 0 };
+  const actions = [];
+  let status = 'playing';
+  let moves = 0;
+  let combo = 0;
+  let lastElimMove = -Infinity;
+  let shuffles = 0;
+  let lastPick = null;
+  let remaining = tiles.length;
+
+  const isFree = (id) => {
+    const t = tiles[id];
+    if (!t) return false;
+    if (t.zone === 'board') return blockers[id] === 0;
+    if (t.zone === 'buffer') { const col = buffer[t.col]; return col[col.length - 1] === id; }
+    return false;
+  };
+  const freeIds = () => tiles.filter((t) => isFree(t.id)).map((t) => t.id);
+  // 拿走这张后能直接减少多少张场上牌的遮挡；不在场上的牌不遮挡任何牌
+  const blocking = (id) => (tiles[id] && tiles[id].zone === 'board' ? covers[id].filter((j) => tiles[j].zone === 'board').length : 0);
+
+  function pick(id) {
+    if (status !== 'playing' || !isFree(id)) return null;
+    const t = tiles[id];
+    const from = t.zone === 'board' ? { zone: 'board' } : { zone: 'buffer', col: t.col };
+    if (t.zone === 'board') for (const j of covers[id]) blockers[j]--;
+    else buffer[t.col].pop();
+    t.zone = 'slot';
+    t.col = -1;
+    let idx = slot.length;
+    for (let i = slot.length - 1; i >= 0; i--) if (tiles[slot[i]].kind === t.kind) { idx = i + 1; break; }
+    slot.splice(idx, 0, id);
+    moves++;
+    actions.push(['p', id]);
+    const events = [{ type: 'pick', id, slotIndex: idx, from }];
+    const same = slot.filter((s) => tiles[s].kind === t.kind);
+    let eliminated = false;
+    if (same.length === 3) {
+      for (const s of same) { tiles[s].zone = 'gone'; slot.splice(slot.indexOf(s), 1); }
+      remaining -= 3;
+      combo = moves - lastElimMove <= COMBO_WINDOW ? combo + 1 : 1;
+      lastElimMove = moves;
+      eliminated = true;
+      events.push({ type: 'eliminate', ids: same, kind: t.kind, combo });
+    }
+    lastPick = { id, from, eliminated };
+    if (remaining === 0) { status = 'won'; events.push({ type: 'win' }); }
+    else if (slot.length >= SLOT_SIZE) { status = 'lost'; events.push({ type: 'lose' }); }
+    return events;
+  }
+
+  // 卡槽最左边最多 3 张依次叠到移出区 0/1/2 列栈顶
+  function takeToBuffer() {
+    const take = slot.splice(0, Math.min(BUFFER_COLS, slot.length));
+    return take.map((id, col) => {
+      const t = tiles[id];
+      t.zone = 'buffer';
+      t.col = col;
+      buffer[col].push(id);
+      return { id, col, height: buffer[col].length - 1 };
+    });
+  }
+
+  const canMoveOut = () => status === 'playing' && props.moveOut > 0 && slot.length > 0;
+  function moveOut() {
+    if (!canMoveOut()) return null;
+    props.moveOut--; used.moveOut++;
+    lastPick = null;
+    actions.push(['m']);
+    return [{ type: 'moveOut', moves: takeToBuffer() }];
+  }
+
+  const canUndo = () => status === 'playing' && props.undo > 0 && !!lastPick && !lastPick.eliminated && tiles[lastPick.id].zone === 'slot';
+  function undo() {
+    if (!canUndo()) return null;
+    props.undo--; used.undo++;
+    const { id, from } = lastPick;
+    lastPick = null;
+    moves--;
+    slot.splice(slot.indexOf(id), 1);
+    const t = tiles[id];
+    if (from.zone === 'board') {
+      t.zone = 'board';
+      for (const j of covers[id]) blockers[j]++;
+    } else {
+      t.zone = 'buffer';
+      t.col = from.col;
+      buffer[from.col].push(id);
+    }
+    actions.push(['u']);
+    return [{ type: 'undo', id, to: from }];
+  }
+
+  const canShuffle = () => status === 'playing' && props.shuffle > 0 && tiles.some((t) => t.zone === 'board');
+  // 洗牌：位置不动只换图案；随机数由「关卡种子 + 洗牌次数」决定，保证回放一致；尽量保证有解
+  function shuffle() {
+    if (!canShuffle()) return null;
+    props.shuffle--; used.shuffle++; shuffles++;
+    const rng = createRng(hashSeed(`${level.seed ?? 0}:shuffle:${shuffles}`));
+    const ids = tiles.filter((t) => t.zone === 'board').map((t) => t.id);
+    const local = new Map(ids.map((id, i) => [id, i]));
+    const quota = new Map();
+    for (const id of ids) quota.set(tiles[id].kind, (quota.get(tiles[id].kind) || 0) + 1);
+    // 原味地狱（gen.solvable === false）的洗牌与原版一样纯随机
+    const res = level.gen?.solvable === false ? null : assignKinds({
+      n: ids.length,
+      coveredBy: ids.map((id) => coveredBy[id].filter((j) => local.has(j)).map((j) => local.get(j))),
+      quota,
+      kOpen: level.gen?.kOpen ?? 3,
+      pContinue: level.gen?.pContinue ?? 0.5,
+      pDig: level.gen?.pDig ?? 0,
+      rng,
+      initialSlot: slot.map((id) => tiles[id].kind),
+      fixed: buffer.map((col) => col.map((id) => tiles[id].kind)),
+      maxTries: 30,
+    });
+    const next = res ? res.kinds : rng.shuffle(ids.map((id) => tiles[id].kind));
+    const changes = [];
+    ids.forEach((id, i) => {
+      if (tiles[id].kind !== next[i]) { tiles[id].kind = next[i]; changes.push({ id, kind: next[i] }); }
+    });
+    lastPick = null;
+    actions.push(['s']);
+    return [{ type: 'shuffle', changes, solvable: !!res }];
+  }
+
+  const canRevive = () => status === 'lost' && props.revive > 0;
+  function revive() {
+    if (!canRevive()) return null;
+    props.revive--; used.revive++;
+    status = 'playing';
+    lastPick = null;
+    actions.push(['r']);
+    return [{ type: 'revive' }, { type: 'moveOut', moves: takeToBuffer() }];
+  }
+
+  function apply(a) {
+    switch (a[0]) {
+      case 'p': return pick(a[1]);
+      case 'm': return moveOut();
+      case 'u': return undo();
+      case 's': return shuffle();
+      case 'r': return revive();
+      default: return null;
+    }
+  }
+  const replay = (list) => list.every((a) => apply(a) !== null);
+
+  return {
+    level,
+    // 注意：tiles 是引擎内部数组的活引用（只读约定，调用方不得修改）；slot/buffer/props/used 为副本
+    get state() {
+      return { tiles, slot: slot.slice(), buffer: buffer.map((c) => c.slice()), props: { ...props }, used: { ...used }, status, moves, combo, remaining };
+    },
+    get actions() { return actions.map((a) => a.slice()); },
+    isFree, freeIds, blocking,
+    pick, moveOut, undo, shuffle, revive,
+    canMoveOut, canUndo, canShuffle, canRevive,
+    apply, replay,
+  };
+}
+return { SLOT_SIZE, BUFFER_COLS, createGame };
+})();
+// ---- core/bot.js ----
+const __m_core_bot_js = (() => {
+const { SLOT_SIZE } = __m_core_game_js;
+// 贪心机器人：只看空闲牌与卡槽（不偷看被压住的图案），用于平衡模拟与调试自动玩
+// 注意：generator.js 用它评估候选关卡的难度，改动打分会改变每日关卡的内容（tests/generator.test.mjs 的金样指纹会失败，需同时重跑平衡并更新指纹）
+
+
+function bestMove(game) {
+  const s = game.state;
+  const free = game.freeIds();
+  if (!free.length) return { id: -1, score: -Infinity };
+  const inSlot = new Map();
+  for (const id of s.slot) { const k = s.tiles[id].kind; inSlot.set(k, (inSlot.get(k) || 0) + 1); }
+  const freeOf = new Map();
+  for (const id of free) { const k = s.tiles[id].kind; freeOf.set(k, (freeOf.get(k) || 0) + 1); }
+  let best = -1;
+  let bestScore = -Infinity;
+  for (const id of free) {
+    const k = s.tiles[id].kind;
+    const c = inSlot.get(k) || 0;
+    const f = freeOf.get(k);
+    let score;
+    if (c === 2) score = 1000;
+    else if (s.slot.length + 1 >= SLOT_SIZE) score = -10000;
+    else if (c === 1) score = f >= 2 ? 800 : 400;
+    else score = f >= 3 ? 600 : f === 2 ? 150 : 0;
+    if (c === 0 && SLOT_SIZE - s.slot.length <= 2) score -= 500;
+    score += game.blocking(id) * 3 + (s.tiles[id].zone === 'buffer' ? 5 : 0);
+    if (score > bestScore) { bestScore = score; best = id; }
+  }
+  return { id: best, score: bestScore };
+}
+
+const greedyMove = (game) => bestMove(game).id;
+
+function playOut(game, { useProps = false, maxSteps = 3000 } = {}) {
+  for (let step = 0; step < maxSteps; step++) {
+    const s = game.state;
+    if (s.status === 'won') return 'won';
+    if (s.status === 'lost') {
+      if (useProps && game.canRevive()) { game.revive(); continue; }
+      return 'lost';
+    }
+    if (useProps && s.slot.length >= 5 && game.canMoveOut()) { game.moveOut(); continue; }
+    const { id, score } = bestMove(game);
+    if (useProps && score < 100 && s.slot.length >= 2 && game.canShuffle()) { game.shuffle(); continue; }
+    if (id < 0) return 'lost';
+    game.pick(id);
+  }
+  return game.state.status === 'won' ? 'won' : 'lost';
+}
+return { bestMove, greedyMove, playOut };
+})();
+// ---- core/generator.js ----
+const __m_core_generator_js = (() => {
+const { hashSeed, createRng } = __m_core_rng_js;
+const { buildLayout, computeCovers } = __m_core_layout_js;
+const { assignKinds } = __m_core_assign_js;
+const { createGame } = __m_core_game_js;
+const { playOut } = __m_core_bot_js;
+// 关卡生成：几何布局 + 沿模拟拿牌路径分配图案，保证至少存在一条不用道具的解
+
+
+
+
+
+
+const ICON_COUNT = 16;
+
+// 难度参数（经 tools/balance.mjs 校准：贪心机器人有道具通关率 daily1/easy≈100%、normal≈74%、hard≈45%、daily2≈23%，300 局）
+// kOpen：解路径中同时打开的图案数上限；pContinue：延续已开图案的概率；pDig：优先拿刚露出的牌（越大越难）；
+// candidates：生成几个有解候选、挑机器人最难打的那个；solvable=false 时纯随机且洗牌也纯随机
+const LEVELS = {
+  daily1: { name: '第 1 关', kinds: 3, perKind: 6, cols: 7, rows: 8, layers: 2, stackSize: 0, taper: 0, shrink: 1, baseInset: 1, patterns: ['slab', 'checker', 'holes', 'ring'], kOpen: 1, pContinue: 1, pDig: 0, candidates: 1, solvable: true },
+  daily2: { name: '第 2 关', kinds: 16, perKind: 12, cols: 7, rows: 8, layers: 12, stackSize: 14, taper: 0.12, shrink: 0.2, baseInset: 0, kOpen: 3, pContinue: 0.35, pDig: 1, candidates: 8, solvable: true },
+  easy: { name: '简单', kinds: 6, perKind: 6, cols: 7, rows: 8, layers: 4, stackSize: 0, taper: 0.2, shrink: 0.5, baseInset: 1, kOpen: 2, pContinue: 0.6, pDig: 0, candidates: 1, solvable: true },
+  normal: { name: '普通', kinds: 14, perKind: 9, cols: 7, rows: 8, layers: 9, stackSize: 9, taper: 0.15, shrink: 0.3, baseInset: 0, kOpen: 2, pContinue: 0.45, pDig: 1, candidates: 3, solvable: true },
+  hard: { name: '困难', kinds: 15, perKind: 12, cols: 7, rows: 8, layers: 11, stackSize: 14, taper: 0.12, shrink: 0.22, baseInset: 0, kOpen: 3, pContinue: 0.35, pDig: 1, candidates: 3, solvable: true },
+  hell: { name: '原味地狱', kinds: 16, perKind: 12, cols: 7, rows: 8, layers: 12, stackSize: 12, taper: 0.1, shrink: 0.2, baseInset: 0, kOpen: 3, pContinue: 0.3, pDig: 0, candidates: 1, solvable: false },
+};
+
+// 候选关卡的难度评估：贪心机器人不用道具能清掉的比例（越低越难）
+function greedyProgress(base, kinds) {
+  const game = createGame({ ...base, tiles: base.tiles.map((t, i) => ({ ...t, kind: kinds[i] })) });
+  playOut(game);
+  return 1 - game.state.remaining / kinds.length;
+}
+
+function generateLevel(key, seedStr) {
+  const cfg = LEVELS[key];
+  if (!cfg) throw new Error(`未知关卡：${key}`);
+  const seed = hashSeed(`${key}|${seedStr}`);
+  const rng = createRng(seed);
+  const total = cfg.kinds * cfg.perKind;
+  const positions = buildLayout({ ...cfg, total }, rng.fork('layout'));
+  const kindsUsed = rng.fork('icons').shuffle([...Array(ICON_COUNT).keys()]).slice(0, cfg.kinds);
+  const quota = new Map(kindsUsed.map((k) => [k, cfg.perKind]));
+  const kindRng = rng.fork('kinds');
+  const gen = { kOpen: cfg.kOpen, pContinue: cfg.pContinue, pDig: cfg.pDig ?? 0, solvable: cfg.solvable };
+  const base = {
+    key, name: cfg.name, seedStr, seed, cols: cfg.cols, rows: cfg.rows, gen,
+    tiles: positions.map((p, id) => ({ id, x: p.x, y: p.y, z: p.z, group: p.group, kind: -1 })),
+  };
+  let kinds;
+  let solution = null;
+  if (cfg.solvable) {
+    // 生成若干个有解候选，挑贪心机器人最难打的那个（candidates = 1 时直接用第一个）
+    const { coveredBy } = computeCovers(positions);
+    const candidates = cfg.candidates ?? 1;
+    let best = null;
+    for (let c = 0; c < candidates; c++) {
+      const res = assignKinds({ n: positions.length, coveredBy, quota, kOpen: gen.kOpen, pContinue: gen.pContinue, pDig: gen.pDig, rng: kindRng.fork(`c${c}`) });
+      if (!res) continue;
+      const score = candidates > 1 ? greedyProgress(base, res.kinds) : 0;
+      if (!best || score < best.score) best = { ...res, score };
+    }
+    if (!best) throw new Error(`关卡生成失败：${key}/${seedStr}`);
+    kinds = best.kinds;
+    solution = best.path;
+  } else {
+    const pool = [];
+    for (const [k, c] of quota) for (let i = 0; i < c; i++) pool.push(k);
+    kinds = kindRng.shuffle(pool);
+  }
+  return { ...base, tiles: base.tiles.map((t, i) => ({ ...t, kind: kinds[i] })), kinds: kindsUsed, solution };
+}
+return { ICON_COUNT, LEVELS, generateLevel };
+})();
+// ---- art/icons.js ----
+const __m_art_icons_js = (() => {
+
+// 16 种狗狗主题图案（viewBox 0 0 64 64 的内部片段）
+// 风格：扁平填色 + 深棕粗描边（线宽约 3，圆角连接）+ 一处白色半透明高光。
+// 所有内容限制在 6..58 的安全区内。片段会在页面里被重复插入，
+// 因此不得使用 id、渐变、滤镜和 <text>。
+
+// 通用深色描边
+const INK = '#3B2A1A';
+// 描边公共属性（线宽 3、圆角）
+const LINE = `stroke="${INK}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"`;
+
+// 数值保留两位小数，避免路径里出现长串小数
+function r2(n) {
+  return Math.round(n * 100) / 100;
+}
+
+// 白色半透明高光（描边式短弧）
+function shine(d, width = 3, opacity = 0.6) {
+  return `<path d="${d}" fill="none" stroke="#FFFFFF" stroke-width="${width}" stroke-linecap="round" opacity="${opacity}"/>`;
+}
+
+// 狗骨头外轮廓：两端各两颗圆头，中间骨干略收腰
+// cx/cy 中心；half 圆头圆心到中心的水平距离；dy 上下圆头圆心的半间距；
+// r 圆头半径；s 骨干半高；waist 骨干收腰量
+function bonePath(cx, cy, half, dy, r, s, waist = 0) {
+  const dx = Math.sqrt(r * r - (dy - s) ** 2);
+  const n = Math.sqrt(r * r - dy * dy);
+  const xl = cx - half + dx;
+  const xr = cx + half - dx;
+  return `M${r2(xl)} ${r2(cy - s)}Q${r2(cx)} ${r2(cy - s + waist)} ${r2(xr)} ${r2(cy - s)}`
+    + `A${r} ${r} 0 1 1 ${r2(cx + half + n)} ${r2(cy)}`
+    + `A${r} ${r} 0 1 1 ${r2(xr)} ${r2(cy + s)}`
+    + `Q${r2(cx)} ${r2(cy + s - waist)} ${r2(xl)} ${r2(cy + s)}`
+    + `A${r} ${r} 0 1 1 ${r2(cx - half - n)} ${r2(cy)}`
+    + `A${r} ${r} 0 1 1 ${r2(xl)} ${r2(cy - s)}Z`;
+}
+
+// 狗盆里堆出来的狗粮颗粒：[cx, cy, r, 颜色]，从顶层往底层画（后画的压在前面）
+const KIBBLE_PILE = [
+  [27, 15.5, 5.3, '#B8763A'], [37, 15.5, 5.3, '#9A5A2B'],
+  [21.5, 23, 5.5, '#9A5A2B'], [32, 22.5, 5.6, '#B8763A'], [42.5, 23, 5.5, '#8A4E25'],
+  [16.5, 30, 5.5, '#B8763A'], [26.5, 29.5, 5.6, '#8A4E25'], [37.5, 29.5, 5.6, '#9A5A2B'], [47.5, 30, 5.5, '#B8763A'],
+];
+
+// 狗爪的四个趾头：[cx, cy, rx, ry, 旋转角]
+const PAW_TOES = [
+  [13.4, 30.5, 5, 6.6, -30], [24, 18.5, 5.2, 6.8, -10], [40, 18.5, 5.2, 6.8, 10], [50.6, 30.5, 5, 6.6, 30],
+];
+
+// 西瓜籽：[cx, cy]（西瓜瓣坐标系，圆心 31.5,24）
+const MELON_SEEDS = [[23.5, 29], [31.5, 31.5], [39.5, 29], [27, 35.5], [36, 35.5]];
+
+// 飞盘、项圈等用到的次要色
+const FRISBEE_RIM = '#0288D1';
+const HYDRANT_DARK = '#B71C1C';
+
+// 图案顺序与 Global Constraints 一致（kind 0..15）
+const ICONS = [
+  {
+    key: 'bone', name: '骨头', color: '#F6E7C8',
+    svg: `<path d="${bonePath(32, 32, 15, 8, 9, 5, 1.5)}" fill="#F6E7C8" stroke="#7A5A34" stroke-width="3.5" stroke-linejoin="round"/>`
+      + shine('M11.8 22.1A5.5 5.5 0 0 1 16 18.6M28.5 30.6H35.5', 3, 0.85),
+  },
+  {
+    key: 'ball', name: '网球', color: '#CBE33B',
+    svg: '<circle cx="32" cy="32" r="24" fill="#CBE33B"/>'
+      + '<path d="M16.5 15Q33 32 16.5 49M47.5 15Q31 32 47.5 49" fill="none" stroke="#FFFFFF" stroke-width="3.8" stroke-linecap="round"/>'
+      + shine('M27 13.6Q32 11.9 37 13.6', 3, 0.7)
+      + `<circle cx="32" cy="32" r="24" fill="none" ${LINE}/>`,
+  },
+  {
+    key: 'bowl', name: '狗盆', color: '#F57C23',
+    svg: KIBBLE_PILE.map(([x, y, r, c]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}" stroke="${INK}" stroke-width="2.5"/>`).join('')
+      + `<path d="M12 39H52L56 50.5Q57 55 52.5 55H11.5Q7 55 8 50.5Z" fill="#F57C23" ${LINE}/>`
+      + `<rect x="9" y="31.5" width="46" height="7.5" rx="3.75" fill="#F57C23" ${LINE}/>`
+      + `<path d="${bonePath(32, 47, 6, 2.2, 3, 1.4)}" fill="#FFFFFF"/>`
+      + shine('M13.5 35.2H23', 2.5, 0.6),
+  },
+  {
+    key: 'paw', name: '狗爪', color: '#5D4037',
+    svg: PAW_TOES.map(([x, y, rx, ry, a]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(${a} ${x} ${y})" fill="#5D4037" ${LINE}/>`).join('')
+      + `<path d="M32 32.5C39.5 32.5 46.5 39 47 45.5C47.5 51.5 43.5 54.5 38.5 53.2C35.8 52.5 34.3 51.6 32 51.6C29.7 51.6 28.2 52.5 25.5 53.2C20.5 54.5 16.5 51.5 17 45.5C17.5 39 24.5 32.5 32 32.5Z" fill="#5D4037" ${LINE}/>`
+      + '<path d="M32 38.5C36.5 38.5 40.3 42 40.6 45.5C40.9 48.6 38.6 50.1 36 49.4C34.5 49 33.4 48.5 32 48.5C30.6 48.5 29.5 49 28 49.4C25.4 50.1 23.1 48.6 23.4 45.5C23.7 42 27.5 38.5 32 38.5Z" fill="#FF9EB5"/>'
+      + PAW_TOES.map(([x, y, , , a]) => `<ellipse cx="${x}" cy="${y + 0.6}" rx="2.4" ry="3.2" transform="rotate(${a} ${x} ${y})" fill="#FF9EB5"/>`).join('')
+      + shine('M21.5 41Q23 37.4 26.6 36', 2.5, 0.45),
+  },
+  {
+    key: 'poop', name: '便便', color: '#8D5A3B',
+    svg: `<path d="M25.5 21.5Q28.5 14 36.5 9Q35 15 39.5 21Z" fill="#8D5A3B" ${LINE}/>`
+      + `<ellipse cx="32.5" cy="25.5" rx="12.5" ry="6.8" fill="#8D5A3B" ${LINE}/>`
+      + `<ellipse cx="31.5" cy="35.5" rx="18" ry="7.8" fill="#8D5A3B" ${LINE}/>`
+      + `<ellipse cx="32" cy="47" rx="23.5" ry="8.5" fill="#8D5A3B" ${LINE}/>`
+      + shine('M16.8 35.5Q17.8 32.2 21.2 30.6', 2.5, 0.5)
+      + `<circle cx="25" cy="45.5" r="4.6" fill="#FFFFFF" stroke="${INK}" stroke-width="2"/>`
+      + `<circle cx="39" cy="45.5" r="4.6" fill="#FFFFFF" stroke="${INK}" stroke-width="2"/>`
+      + `<circle cx="26" cy="46.2" r="2.4" fill="${INK}"/><circle cx="40" cy="46.2" r="2.4" fill="${INK}"/>`
+      + '<circle cx="26.8" cy="45.3" r=".9" fill="#FFFFFF"/><circle cx="40.8" cy="45.3" r=".9" fill="#FFFFFF"/>'
+      + `<path d="M28.5 51.5Q32 54 35.5 51.5" fill="none" stroke="${INK}" stroke-width="2.5" stroke-linecap="round"/>`,
+  },
+  {
+    key: 'hydrant', name: '消防栓', color: '#E53935',
+    svg: `<rect x="28.5" y="8" width="7" height="5" rx="2" fill="${HYDRANT_DARK}" ${LINE}/>`
+      + `<path d="M19 25A13 13.5 0 0 1 45 25Z" fill="#E53935" ${LINE}/>`
+      + `<rect x="11" y="30.5" width="11" height="8" rx="2" fill="#E53935" ${LINE}/>`
+      + `<rect x="42" y="30.5" width="11" height="8" rx="2" fill="#E53935" ${LINE}/>`
+      + `<rect x="8" y="28.5" width="5.5" height="12" rx="2" fill="#E53935" ${LINE}/>`
+      + `<rect x="50.5" y="28.5" width="5.5" height="12" rx="2" fill="#E53935" ${LINE}/>`
+      + `<path d="M21 25H43L45 49H19Z" fill="#E53935" ${LINE}/>`
+      + `<rect x="16" y="22.5" width="32" height="6" rx="3" fill="${HYDRANT_DARK}" ${LINE}/>`
+      + `<rect x="14" y="48.5" width="36" height="7.5" rx="3" fill="${HYDRANT_DARK}" ${LINE}/>`
+      + `<circle cx="32" cy="38" r="5" fill="${HYDRANT_DARK}" ${LINE}/><circle cx="32" cy="38" r="1.6" fill="${INK}"/>`
+      + shine('M24.6 32V44.5M22.8 21.2Q23.3 15.8 27.8 14.2', 3, 0.5),
+  },
+  {
+    key: 'duck', name: '小黄鸭', color: '#FFD43B',
+    svg: `<path d="M8 29.5C11.5 34 16 36.5 22.5 36L44 36C52 36 56.5 40.5 56 46C55.5 52.5 47 56 32 56C17 56 10 51.5 9 44.5C8.5 40 7.5 34 8 29.5Z" fill="#FFD43B" ${LINE}/>`
+      + `<path d="M19.5 42.5C25.5 38.5 34.5 39 38.5 43.5C35.5 49.5 27.5 51.5 21.5 49C19 48 18 45 19.5 42.5Z" fill="#F5B400" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/>`
+      + `<circle cx="37.5" cy="22.5" r="12.5" fill="#FFD43B" ${LINE}/>`
+      + `<path d="M47 20Q56 17.5 56.5 22.5Q56.5 27 47 26Z" fill="#FF8C1A" ${LINE}/>`
+      + `<path d="M49.5 23.1H54.5" stroke="${INK}" stroke-width="1.8" stroke-linecap="round"/>`
+      + `<circle cx="40.5" cy="19.5" r="2.6" fill="${INK}"/><circle cx="41.4" cy="18.6" r=".9" fill="#FFFFFF"/>`
+      + '<ellipse cx="42.3" cy="26.6" rx="2.8" ry="1.7" fill="#FF9EB5" opacity=".85"/>'
+      + shine('M29.8 18.5Q31.2 14 35.5 12.9', 3, 0.6),
+  },
+  {
+    key: 'frisbee', name: '飞盘', color: '#29B6F6',
+    svg: '<g transform="rotate(-14 32 32)">'
+      + `<ellipse cx="32" cy="35" rx="24" ry="12.5" fill="${FRISBEE_RIM}" ${LINE}/>`
+      + `<ellipse cx="32" cy="30" rx="24" ry="12.5" fill="#29B6F6" ${LINE}/>`
+      + `<ellipse cx="32" cy="30" rx="15.5" ry="8" fill="none" stroke="${FRISBEE_RIM}" stroke-width="2.5"/>`
+      + `<ellipse cx="32" cy="30" rx="7.5" ry="3.8" fill="none" stroke="${FRISBEE_RIM}" stroke-width="2.5"/>`
+      + shine('M13.5 27.4A19.2 10 0 0 1 21 21.8', 3, 0.65)
+      + '</g>',
+  },
+  {
+    key: 'house', name: '狗窝', color: '#26A69A',
+    svg: `<path d="M13.5 34H50.5V52.5Q50.5 55.5 47.5 55.5H16.5Q13.5 55.5 13.5 52.5Z" fill="#D9A566" ${LINE}/>`
+      + '<path d="M15 45.5H23M41 45.5H49" stroke="#B98546" stroke-width="2" stroke-linecap="round"/>'
+      + `<path d="M23.5 55.5V46.5A8.5 8.5 0 0 1 40.5 46.5V55.5Z" fill="#4A2E1F" ${LINE}/>`
+      + `<path d="M29.8 9.6Q32 7.4 34.2 9.6L55 33.2Q57 36.5 53.5 36.5H10.5Q7 36.5 9 33.2Z" fill="#26A69A" ${LINE}/>`
+      + `<path d="${bonePath(32, 26, 5.5, 2, 2.8, 1.3)}" fill="#FFFFFF"/>`
+      + shine('M15.6 30L26.4 17.8', 3, 0.5),
+  },
+  {
+    key: 'collar', name: '项圈', color: '#8E44AD',
+    // 皮带式圆环：顶部一枚银色搭扣，环上几颗银铆钉，下面挂金色骨头牌
+    svg: '<path d="M8.25 25A23.75 17.25 0 1 0 55.75 25A23.75 17.25 0 1 0 8.25 25ZM17.75 25A14.25 7.75 0 1 0 46.25 25A14.25 7.75 0 1 0 17.75 25Z" '
+      + `fill="#8E44AD" fill-rule="evenodd" ${LINE}/>`
+      + [155, 205, 335, 25].map((a) => {
+        const t = (a * Math.PI) / 180;
+        return `<circle cx="${r2(32 + 19 * Math.cos(t))}" cy="${r2(25 + 12.5 * Math.sin(t))}" r="1.9" fill="#F1ECFA" stroke="${INK}" stroke-width="1.2"/>`;
+      }).join('')
+      + shine('M17.3 16.4A19 12.5 0 0 1 25.5 13.2', 2.2, 0.55)
+      + `<rect x="27.5" y="7.5" width="9" height="10.5" rx="2.2" fill="#DDE2EA" stroke="${INK}" stroke-width="2.2"/>`
+      + `<path d="M29.3 12.5H34.7" stroke="${INK}" stroke-width="2" stroke-linecap="round"/>`
+      + `<circle cx="32" cy="45" r="2.8" fill="none" stroke="${INK}" stroke-width="2.2"/>`
+      + `<path d="${bonePath(32, 50.5, 7, 2.6, 3.3, 1.7)}" fill="#FFC83D" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/>`,
+  },
+  {
+    key: 'sausage', name: '火腿肠', color: '#F06292',
+    svg: `<g transform="translate(15.41 45.34) rotate(160.5)"><path d="M0 -3.4L6.5 -4.6Q8.8 0 6.5 4.6L0 3.4Z" fill="#D94A7B" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/></g>`
+      + `<g transform="translate(45.34 15.41) rotate(-70.5)"><path d="M0 -3.4L6.5 -4.6Q8.8 0 6.5 4.6L0 3.4Z" fill="#D94A7B" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/></g>`
+      // 肠身：沿中心线 M22 43Q37.5 37.5 43 22 两侧各偏移 9.5 的圆头胶囊
+      + `<path d="M25.18 51.95Q44.94 44.94 51.95 25.18A9.5 9.5 0 0 0 34.05 18.82Q30.06 30.06 18.82 34.05A9.5 9.5 0 0 0 25.18 51.95Z" fill="#F06292" ${LINE}/>`
+      + shine('M25.6 36.5Q32.6 32.6 36.5 25.6', 3.5, 0.6),
+  },
+  {
+    key: 'drumstick', name: '鸡腿', color: '#C0662B',
+    svg: `<g fill="${INK}" stroke="${INK}" stroke-linecap="round"><path d="M36 36L45.5 45.5" stroke-width="13"/><circle cx="50" cy="45" r="4.3" stroke-width="6"/><circle cx="45" cy="50" r="4.3" stroke-width="6"/></g>`
+      + '<path d="M36 36L45.5 45.5" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>'
+      + '<circle cx="50" cy="45" r="4.3" fill="#FFFFFF"/><circle cx="45" cy="50" r="4.3" fill="#FFFFFF"/>'
+      + `<path d="M41 42.5C35 48 22 51 14 44.5C6 38 7.5 22 16.5 14.5C25.5 7 40 9 46 18C51 25.5 47.5 36 41 42.5Z" fill="#C0662B" ${LINE}/>`
+      + shine('M15.5 27Q17 20 23.5 16.5', 3, 0.5),
+  },
+  {
+    key: 'slipper', name: '拖鞋', color: '#3F6FD8',
+    // 俯视鞋底：宽鞋头、收窄的足弓、圆鞋跟；鞋头右上角是一个半圆形咬痕缺口
+    svg: '<g transform="translate(32 32.4) rotate(22) scale(.97) translate(-32 -32)">'
+      + `<path d="M32 6.5C23 6.5 16.5 11 16.5 18.5C16.5 26 22.5 30 23.5 38C24 42 21 45 21 49.5C21 54.5 26 57.5 31.5 57.5C37 57.5 42 54.5 42 49.5C42 45 40 42 40.5 38C41.5 30 47.5 26 47.5 18.5C47.5 16.5 47.2 14.8 46.6 13.2A5.3 5.3 0 0 1 38.5 7.4C36.5 6.8 34.3 6.5 32 6.5Z" fill="#3F6FD8" ${LINE}/>`
+      + `<path d="M16.2 25.5Q32 19 47.8 25.5L42.8 35.5Q32 30.5 21 35.5Z" fill="#FFFFFF" ${LINE}/>`
+      + shine('M20.8 17.5Q21.6 12.8 26.2 10.8', 3, 0.5)
+      + '</g>',
+  },
+  {
+    key: 'doge', name: '狗头', color: '#F2B45A',
+    svg: `<path d="M11.5 29.5L14 9.5Q15 7 17.5 8.5L30 17.5Z" fill="#F2B45A" ${LINE}/>`
+      + `<path d="M52.5 29.5L50 9.5Q49 7 46.5 8.5L34 17.5Z" fill="#F2B45A" ${LINE}/>`
+      + '<path d="M15 24.5L16.5 13L25 19.5ZM49 24.5L47.5 13L39 19.5Z" fill="#FFE3BF"/>'
+      + '<path d="M32 15C46 15 56 23.5 56 36C56 48.5 45.5 56 32 56C18.5 56 8 48.5 8 36C8 23.5 18 15 32 15Z" fill="#F2B45A"/>'
+      + '<path d="M32 38C37.5 38 41 40.5 43 43.5C46.5 41 51 40.5 55.6 42C54 50.5 45 56 32 56C19 56 10 50.5 8.4 42C13 40.5 17.5 41 21 43.5C23 40.5 26.5 38 32 38Z" fill="#FFF6E6"/>'
+      + '<ellipse cx="22" cy="25.5" rx="3.2" ry="2.2" fill="#FFF6E6"/><ellipse cx="42" cy="25.5" rx="3.2" ry="2.2" fill="#FFF6E6"/>'
+      + `<path d="M32 15C46 15 56 23.5 56 36C56 48.5 45.5 56 32 56C18.5 56 8 48.5 8 36C8 23.5 18 15 32 15Z" fill="none" ${LINE}/>`
+      + shine('M13.5 31Q15 24.5 21 21', 3, 0.5)
+      + `<path d="M16.5 31.5H27.5A5.5 5.5 0 0 1 16.5 31.5ZM36.5 31.5H47.5A5.5 5.5 0 0 1 36.5 31.5Z" fill="#FFFFFF" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/>`
+      + `<circle cx="25" cy="33.3" r="2.3" fill="${INK}"/><circle cx="45" cy="33.3" r="2.3" fill="${INK}"/>`
+      + `<path d="M15.5 31.5H28.5M35.5 31.5H48.5" stroke="${INK}" stroke-width="3" stroke-linecap="round"/>`
+      + `<path d="M28.5 40.5Q32 39 35.5 40.5Q35 44 32 45Q29 44 28.5 40.5Z" fill="${INK}"/>`
+      + `<path d="M32 45V46.5M26.5 46Q29.2 49.5 32 46.5Q34.8 49.5 38.5 45.5" fill="none" stroke="${INK}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`,
+  },
+  {
+    key: 'melon', name: '西瓜', color: '#43A047',
+    svg: '<g transform="translate(-.25 0) rotate(-20 31.5 24)">'
+      + '<path d="M6.5 24A25 25 0 0 0 56.5 24Z" fill="#43A047"/>'
+      + '<path d="M13.5 24A18 18 0 0 0 49.5 24Z" fill="#F1F8E9"/>'
+      + '<path d="M16.5 24A15 15 0 0 0 46.5 24Z" fill="#EF5350"/>'
+      + MELON_SEEDS.map(([x, y]) => {
+        const a = r2((Math.atan2(y - 24, x - 31.5) * 180) / Math.PI - 90);
+        return `<ellipse cx="${x}" cy="${y}" rx="1.5" ry="2.3" transform="rotate(${a} ${x} ${y})" fill="#2B1D14"/>`;
+      }).join('')
+      + shine('M12.9 34.8A21.5 21.5 0 0 0 20.8 42.6', 2.5, 0.5)
+      + `<path d="M6.5 24A25 25 0 0 0 56.5 24Z" fill="none" ${LINE}/>`
+      + '</g>',
+  },
+  {
+    key: 'kibble', name: '狗粮袋', color: '#5C6BC0',
+    svg: `<path d="M14.5 18H49.5C52.5 28 53.5 40 52.5 50Q52 55.5 46.5 55.5H17.5Q12 55.5 11.5 50C10.5 40 11.5 28 14.5 18Z" fill="#5C6BC0" ${LINE}/>`
+      + `<path d="M13 12L16.8 8.8L20.6 12L24.4 8.8L28.2 12L32 8.8L35.8 12L39.6 8.8L43.4 12L47.2 8.8L51 12V19.5Q51 21.5 49 21.5H15Q13 21.5 13 19.5Z" fill="#3F4BA6" ${LINE}/>`
+      + `<path d="${bonePath(32, 38.5, 9, 3.3, 4.2, 2.2)}" fill="#FFFFFF"/>`
+      + shine('M16.6 27Q15.4 37 16.4 47', 3, 0.45),
+  },
+];
+
+// 页面内复用的 symbol sprite（牌面用 <use href="#ic-key"> 引用）
+function iconSymbolsSVG() {
+  const symbols = ICONS.map((i) => `<symbol id="ic-${i.key}" viewBox="0 0 64 64">${i.svg}</symbol>`).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:none">${symbols}</svg>`;
+}
+
+// 独立完整 SVG（战绩图、预览页用）
+function iconSVG(kind, size = 64) {
+  const i = ICONS[kind] || ICONS[0];
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="${size}" height="${size}">${i.svg}</svg>`;
+}
+return { ICONS, iconSymbolsSVG, iconSVG };
+})();
+// ---- art/dogs.js ----
+const __m_art_dogs_js = (() => {
+
+// 6 个犬种 × 6 种心情的 Q 版狗头（viewBox 0 0 120 120）
+// 参数化拼装：犬种提供耳朵、脸型、面罩/花纹片段；心情提供眉毛、眼睛、嘴和附加元素。
+// 片段会被重复插入页面，因此不得使用 id、渐变、滤镜和 <text>。
+
+// 统一深棕描边与主线宽
+const INK = '#3B2A1A';
+const W = 4;
+// 口腔、舌头、汗珠/泪滴、腮红
+const MOUTH_IN = '#6B2A22';
+const TONGUE = '#FF7F93';
+const DROP = '#7CCBF5';
+const BLUSH = '#FF7A8A';
+
+// 犬种顺序与 Global Constraints 一致。colors 里：fur 主毛色、light 浅色花纹、ear 耳朵内侧（或垂耳）色
+const BREEDS = [
+  { key: 'shiba', name: '柴犬', team: '柴犬队', colors: { fur: '#E8913A', light: '#FFF1DC', ear: '#FFF1DC' } },
+  { key: 'husky', name: '哈士奇', team: '哈士奇队', colors: { fur: '#8E9AAF', light: '#FFFFFF', ear: '#FFFFFF', eye: '#4FB3F0' } },
+  { key: 'corgi', name: '柯基', team: '柯基队', colors: { fur: '#F0A04B', light: '#FFFFFF', ear: '#FFD9BF' } },
+  { key: 'golden', name: '金毛', team: '金毛队', colors: { fur: '#E3B04B', light: '#F8DD9F', ear: '#CF9433' } },
+  { key: 'teddy', name: '泰迪', team: '泰迪队', colors: { fur: '#A0673A', light: '#CC9464', ear: '#86522C' } },
+  { key: 'tianyuan', name: '田园犬', team: '田园犬队', colors: { fur: '#D9A441', light: '#FFFFFF', ear: '#F2D08E', muzzle: '#BD8733' } },
+];
+
+const MOODS = ['idle', 'happy', 'worried', 'sad', 'cheer', 'shock'];
+
+// 默认脸型：圆润的 Q 版大头（x 17..103，y 28..104）
+const HEAD = 'M60 28C87 28 103 44 103 66C103 88 86 104 60 104C34 104 17 88 17 66C17 44 33 28 60 28Z';
+// 默认头部高光位置（左上）
+const HEAD_SHINE = 'M27.5 52Q30.5 41 40.5 35';
+// 双眼中心
+const EYE_L = [44, 66];
+const EYE_R = [76, 66];
+
+// 数值保留两位小数
+function n2(v) {
+  return Math.round(v * 100) / 100;
+}
+
+// 左右对称：左侧片段 + 以 x=60 为轴的镜像副本
+function pair(svg) {
+  return `${svg}<g transform="matrix(-1 0 0 1 120 0)">${svg}</g>`;
+}
+
+// 一组圆的“并集”描边：先画粗深色底，再盖同样的填色圆，外轮廓就是一条连续的描边
+function curlyBlob(circles, fill) {
+  const shapes = circles.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('');
+  return `<g fill="${INK}" stroke="${INK}" stroke-width="${W * 2}">${shapes}</g><g fill="${fill}">${shapes}</g>`;
+}
+
+// 泰迪的卷毛头：沿椭圆排一圈小圆（中间再由实心椭圆补满）
+function teddyHeadCircles() {
+  const list = [];
+  for (let k = 0; k < 18; k++) {
+    const t = (k * 20 * Math.PI) / 180;
+    list.push([n2(60 + 37 * Math.cos(t)), n2(67 + 32 * Math.sin(t)), 9]);
+  }
+  return list;
+}
+
+// 各犬种的部件：back 画在头后面（立耳），marks 为脸上花纹，front 画在头前面（垂耳/卷毛耳）
+const PARTS = {
+  shiba: (c) => ({
+    back: pair(`<path d="M22 60C20 44 22 28 28 17Q31 12 36 16C44 22 51 28 56 34Z" fill="${c.fur}" stroke="${INK}" stroke-width="${W}"/>`
+      + `<path d="M29 49C28.5 40 29.5 31 32 24.5Q33.5 21.5 36 24C40.5 28.5 44.5 32.5 48 36.5Z" fill="${c.ear}"/>`),
+    // 奶白色腮帮与嘴套（柴犬的“里白”）
+    marks: `<path d="M18 78C25 73 35 74 41 80C46 75 53 72 60 72C67 72 74 75 79 80C85 74 95 73 102 78C99 94 83 104 60 104C37 104 21 94 18 78Z" fill="${c.light}"/>`,
+    browDot: c.light,
+  }),
+  husky: (c) => ({
+    back: pair(`<path d="M24 58C22 42 24 26 29 14Q31 9 35.5 13C43 21 50 28 55 34Z" fill="${c.fur}" stroke="${INK}" stroke-width="${W}"/>`
+      + `<path d="M30.5 48C30 39 31 30 33 22.5Q34 20 36 22C40 26.5 44 31 47.5 35.5Z" fill="${c.ear}"/>`),
+    // 白色倒三角面罩，额头中间留一道灰色 V 形
+    marks: `<path d="M24 60C30 51 40 50 48 55L60 67L72 55C80 50 90 51 96 60C98 72 92 86 82 95C75 101 68 104 60 104C52 104 45 101 38 95C28 86 22 72 24 60Z" fill="${c.light}"/>`,
+  }),
+  corgi: (c) => ({
+    back: pair(`<path d="M21 64C13 48 11 28 13 12Q14 6 20 8C34 14 46 24 54 34Z" fill="${c.fur}" stroke="${INK}" stroke-width="${W}"/>`
+      + `<path d="M24.5 54C19.5 43 18.5 30 19.5 18.5Q20.5 14 24.5 16C33 21 41 28 47 35Z" fill="${c.ear}"/>`),
+    // 额头一道白纹，向下展开成白色嘴套
+    marks: `<path d="M55.5 29Q60 27 64.5 29L65.5 57C71 63 80 69 86 79C90 92 78 104 60 104C42 104 30 92 34 79C40 69 49 63 54.5 57Z" fill="${c.light}"/>`,
+  }),
+  golden: (c) => ({
+    marks: `<ellipse cx="60" cy="87" rx="19" ry="14" fill="${c.light}"/>`,
+    // 下垂的大耳朵，压在脸的两侧
+    front: pair(`<path d="M38 34C26 30 12 38 8 56C5 72 9 88 17 93C25 97 31 90 31 78C31 66 32 54 38 34Z" fill="${c.ear}" stroke="${INK}" stroke-width="${W}"/>`),
+    shine: 'M42 43Q46 36.5 53 33.8',
+  }),
+  teddy: (c) => ({
+    // 一圈小圆组成的卷毛轮廓
+    union: curlyBlob(teddyHeadCircles(), c.fur) + `<ellipse cx="60" cy="67" rx="38" ry="33" fill="${c.fur}"/>`,
+    marks: `<ellipse cx="60" cy="86" rx="18" ry="14.5" fill="${c.light}"/>`,
+    // 卷毛垂耳
+    front: pair(curlyBlob([[21, 60, 9], [17, 72, 9], [19, 85, 8.5], [25.5, 95, 7.5]], c.ear)),
+    shine: 'M34 44Q38 37 46 33.5',
+  }),
+  tianyuan: (c) => ({
+    // 立耳：比柴犬更高、向外撇，长在头的两侧
+    back: pair(`<path d="M24 60C19 47 17.5 30 19.5 14Q20.5 6.5 27 9.5C36 15 44.5 25 51 34Z" fill="${c.fur}" stroke="${INK}" stroke-width="${W}"/>`
+      + `<path d="M26.5 51C22.5 42 21.5 31 22.5 20Q23.5 15.5 27.5 17.5C33.5 22 38.5 28 42.5 34Z" fill="${c.ear}"/>`),
+    // 白下巴 + 颜色略深的嘴套（豆形吻部，盖住鼻子到下巴）
+    marks: `<path d="M36 93C44 88 76 88 84 93C78 101 69 104 60 104C51 104 42 101 36 93Z" fill="${c.light}"/>`
+      + `<path d="M60 69C72.5 69 82 75.5 82 84.5C82 93.5 72.5 98 60 98C47.5 98 38 93.5 38 84.5C38 75.5 47.5 69 60 69Z" fill="${c.muzzle}"/>`,
+  }),
+};
+
+// 白色半透明高光
+function headShine(d) {
+  return `<path d="${d}" fill="none" stroke="#FFFFFF" stroke-width="4.5" opacity=".45"/>`;
+}
+
+// 眉毛：柴犬用米色眉点（随心情倾斜），其余犬种在担心/难过时画八字眉
+function brows(mood, dotColor) {
+  const tilt = mood === 'worried' || mood === 'sad' ? 20 : 0;
+  if (dotColor) {
+    const edge = tilt ? ` stroke="${INK}" stroke-width="2.5"` : '';
+    return pair(`<ellipse cx="44" cy="52" rx="5.5" ry="3.6" transform="rotate(${-tilt} 44 52)" fill="${dotColor}"${edge}/>`);
+  }
+  if (!tilt) return '';
+  return `<path d="M35 55.5L49 50.5M71 50.5L85 55.5" fill="none" stroke="${INK}" stroke-width="${W}"/>`;
+}
+
+// 圆眼：黑眼珠（或带蓝色虹膜）+ 两颗高光
+function roundEye(x, y, r, iris) {
+  const ball = iris
+    ? `<circle cx="${x}" cy="${y}" r="${r}" fill="${iris}" stroke="${INK}" stroke-width="2.5"/><circle cx="${x}" cy="${y}" r="${n2(r * 0.52)}" fill="${INK}"/>`
+    : `<circle cx="${x}" cy="${y}" r="${r}" fill="${INK}"/>`;
+  return ball
+    + `<circle cx="${n2(x + r * 0.32)}" cy="${n2(y - r * 0.35)}" r="${n2(r * 0.36)}" fill="#FFFFFF"/>`
+    + `<circle cx="${n2(x - r * 0.35)}" cy="${n2(y + r * 0.38)}" r="${n2(r * 0.17)}" fill="#FFFFFF"/>`;
+}
+
+// 五角星（星星眼）
+function starPath(cx, cy, outer, inner) {
+  let d = '';
+  for (let k = 0; k < 10; k++) {
+    const t = ((-90 + k * 36) * Math.PI) / 180;
+    const rad = k % 2 ? inner : outer;
+    d += `${k ? 'L' : 'M'}${n2(cx + rad * Math.cos(t))} ${n2(cy + rad * Math.sin(t))}`;
+  }
+  return `${d}Z`;
+}
+
+// 下垂的眼睛：内眼角高、外眼角低的半圆眼（左眼，右眼用镜像）
+function droopyEye(iris) {
+  const [x, y] = EYE_L;
+  const shape = `M${x + 7.5} ${y - 3.5}L${x - 7.5} ${y + 0.5}A8 8 0 0 0 ${x + 7.5} ${y - 3.5}Z`;
+  const body = iris
+    ? `<path d="${shape}" fill="${iris}" stroke="${INK}" stroke-width="2.5"/><circle cx="${x}" cy="${y + 2}" r="3" fill="${INK}"/>`
+    : `<path d="${shape}" fill="${INK}"/>`;
+  return body + `<circle cx="${x + 2.5}" cy="${y + 2.5}" r="1.8" fill="#FFFFFF"/>`;
+}
+
+// 各心情的眼睛
+function eyes(mood, iris) {
+  const both = (fn) => fn(EYE_L[0], EYE_L[1]) + fn(EYE_R[0], EYE_R[1]);
+  switch (mood) {
+    case 'happy':
+      return both((x, y) => `<path d="M${x - 9} ${y + 3}Q${x} ${y - 8} ${x + 9} ${y + 3}" fill="none" stroke="${INK}" stroke-width="4.5"/>`);
+    case 'worried':
+      return both((x, y) => roundEye(x, y + 1, 7, iris));
+    case 'sad':
+      return pair(droopyEye(iris));
+    case 'cheer':
+      return both((x, y) => `<path d="${starPath(x, y, 9.5, 4.3)}" fill="#FFD43B" stroke="${INK}" stroke-width="3"/>`);
+    case 'shock':
+      return both((x, y) => `<circle cx="${x}" cy="${y}" r="9" fill="#FFFFFF" stroke="${INK}" stroke-width="3"/><circle cx="${x}" cy="${y}" r="2.8" fill="${INK}"/>`);
+    default:
+      return both((x, y) => roundEye(x, y, 8, iris));
+  }
+}
+
+// 鼻子（带一点高光）
+const NOSE = `<path d="M53 74.5Q60 72 67 74.5Q66.5 80 60 81.5Q53.5 80 53 74.5Z" fill="${INK}"/>`
+  + '<ellipse cx="57" cy="75.3" rx="2.2" ry="1.1" fill="#FFFFFF" opacity=".7"/>';
+
+// 各心情的嘴
+function mouth(mood) {
+  const line = `fill="none" stroke="${INK}" stroke-width="3.5"`;
+  switch (mood) {
+    case 'happy':
+      return `<path d="M49 83.5Q60 89 71 83.5Q70 98 60 98Q50 98 49 83.5Z" fill="${MOUTH_IN}" stroke="${INK}" stroke-width="3.5"/>`
+        + `<path d="M53 91.5Q60 88.5 67 91.5V95.5Q67 102.5 60 102.5Q53 102.5 53 95.5Z" fill="${TONGUE}" stroke="${INK}" stroke-width="3"/>`
+        + '<path d="M60 92.5V97.5" stroke="#E0566E" stroke-width="2"/>';
+    case 'worried':
+      return `<path d="M50 89Q55 85 60 89Q65 93 70 89" ${line}/>`;
+    case 'sad':
+      return `<path d="M50.5 92Q60 83.5 69.5 92" ${line}/>`;
+    case 'cheer':
+      return `<path d="M46.5 83Q60 89.5 73.5 83Q72.5 101 60 101Q47.5 101 46.5 83Z" fill="${MOUTH_IN}" stroke="${INK}" stroke-width="3.5"/>`
+        + `<path d="M52 96.5Q60 90.5 68 96.5Q65.5 100 60 100Q54.5 100 52 96.5Z" fill="${TONGUE}"/>`;
+    case 'shock':
+      return `<ellipse cx="60" cy="91" rx="5.5" ry="7" fill="${MOUTH_IN}" stroke="${INK}" stroke-width="3.5"/>`;
+    default:
+      return `<path d="M60 81.5V84.5M51 84Q55.5 89.5 60 84.5Q64.5 89.5 69 84" ${line}/>`;
+  }
+}
+
+// 附加元素：汗珠、泪滴、红晕、惊讶线
+function extras(mood) {
+  switch (mood) {
+    case 'worried':
+      return `<path d="M100 36C104 43 107 47.5 107 51.5A7 7 0 0 1 93 51.5C93 47.5 96 43 100 36Z" fill="${DROP}" stroke="${INK}" stroke-width="3"/>`
+        + '<ellipse cx="97.3" cy="51.5" rx="1.6" ry="2.6" fill="#FFFFFF" opacity=".85"/>';
+    case 'sad':
+      return pair(`<path d="M34.5 72C37.5 77 39 79.5 39 81.5A4.5 4.5 0 0 1 30 81.5C30 79.5 31.5 77 34.5 72Z" fill="${DROP}" stroke="${INK}" stroke-width="2.5"/>`);
+    case 'cheer':
+      return pair(`<ellipse cx="34" cy="83" rx="7" ry="4.3" fill="${BLUSH}" opacity=".55"/>`);
+    case 'shock':
+      return `<path d="M60 6V17M44 9.5L48.5 19M76 9.5L71.5 19" fill="none" stroke="${INK}" stroke-width="${W}"/>`;
+    default:
+      return '';
+  }
+}
+
+// 狗头 SVG：犬种未知时退回柴犬，心情未知时退回 idle
+function dogHeadSVG(breedKey, mood) {
+  const breed = BREEDS.find((b) => b.key === breedKey) || BREEDS[0];
+  const m = MOODS.includes(mood) ? mood : 'idle';
+  const c = breed.colors;
+  const p = PARTS[breed.key](c);
+  let s = p.back || '';
+  s += p.union || `<path d="${HEAD}" fill="${c.fur}"/>`;
+  s += p.marks || '';
+  if (!p.union) s += `<path d="${HEAD}" fill="none" stroke="${INK}" stroke-width="${W}"/>`;
+  s += p.front || '';
+  s += headShine(p.shine || HEAD_SHINE);
+  s += brows(m, p.browDot);
+  s += eyes(m, c.eye);
+  s += NOSE;
+  s += mouth(m);
+  s += extras(m);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" stroke-linejoin="round" stroke-linecap="round">${s}</svg>`;
+}
+return { BREEDS, MOODS, dogHeadSVG };
+})();
+// ---- audio/audio.js ----
+const __m_audio_audio_js = (() => {
+
+// WebAudio 实时合成：音效 + 原创 BGM + 紧张声部；无 AudioContext 时全部静默
+//
+// 约定：
+// - 只用具名导出（const / function 两种写法），构建脚本依赖这个约定；
+// - 模块顶层不访问 window / document，浏览器能力都在函数里按需判断；
+// - 全部声音实时合成，不读取任何音频文件。
+
+const SFX_NAMES = Object.freeze(['tap', 'place', 'match', 'woof', 'moveOut', 'undo', 'shuffle', 'warn', 'deny', 'win', 'lose', 'revive', 'button']);
+
+// ───────────────────────── 原创曲谱《狗狗撒欢》 ─────────────────────────
+// C 大调五声音阶（C D E G A），128 BPM，16 小节 AABA，一遍 30 秒，循环播放。
+// 和声：A 段 C | Am | Dm | G，B 段 Am | Em | Dm | G。
+// 动机：A 段句头是「汪-汪、汪-汪」的下行四度（G→D），句尾用十六分音符小跑上行；
+//      B 段把它倒过来变成上行四度（E→A），一路推到全曲最高音 E6，再滑回 A 段。
+//
+// 记谱：每小节 16 个记号，空格分隔，一个记号 = 一个十六分音符。
+//   旋律 / 贝斯：音名（如 E5）表示在此起音；'-' 延长前一个音；'.' 休止。
+//   鼓：k 底鼓、s 军鼓、h 踩镲，可以组合（如 ks）；'.' 表示这一步没有鼓。
+
+const STEPS_PER_BAR = 16;
+
+const LEAD_PHRASES = {
+  hook: 'G5 -  D5 -  .  .  G5 -  D5 -  .  .  E5 G5 A5 C6', // 汪-汪，汪-汪，小跑上行
+  answer: 'A5 -  -  G5 -  E5 -  -  D5 -  E5 -  C5 -  -  -', // 切分着落回来
+  hookLow: 'A5 -  E5 -  .  .  A5 -  E5 -  .  .  D5 E5 G5 A5', // 句头移到 Dm 上
+  half: 'G5 -  -  A5 -  G5 -  -  E5 -  D5 -  -  -  .  .', // 半终止，停在属音上
+  turn: 'A5 -  E5 -  .  .  A5 -  G5 -  E5 -  D5 -  E5 -', // Dm → G，引向终止
+  cadence: 'G5 -  -  C6 -  -  A5 -  G5 -  E5 -  C5 -  -  -', // 回到主音
+  bridge1: 'E5 -  A5 -  .  .  E5 -  A5 -  .  .  C6 -  A5 -', // B 段：「汪-汪」倒影成上行四度
+  bridge2: 'D5 -  G5 -  .  .  D5 -  G5 -  .  .  A5 -  G5 -',
+  bridge3: 'E5 -  A5 -  .  .  E5 -  A5 -  .  .  C6 -  D6 -',
+  bridge4: 'E6 -  -  D6 -  -  C6 -  A5 -  G5 -  E5 -  D5 -', // 冲到最高点后一路滑回
+  loopEnd: 'G5 -  -  C6 -  -  A5 -  G5 -  E5 -  C5 -  E5 -', // 同 cadence，末尾带弱起接回开头
+};
+const LEAD_FORM = [
+  'hook', 'answer', 'hookLow', 'half', // A
+  'hook', 'answer', 'turn', 'cadence', // A
+  'bridge1', 'bridge2', 'bridge3', 'bridge4', // B
+  'hook', 'answer', 'turn', 'loopEnd', // A
+];
+
+// 贝斯：每半小节「3+3+2」的弹跳节奏（根音、根音、五度）
+const BASS_PATTERNS = {
+  C: 'C3 -  .  C3 -  .  G2 -  C3 -  .  C3 -  .  G2 -',
+  Am: 'A2 -  .  A2 -  .  E2 -  A2 -  .  A2 -  .  E2 -',
+  Dm: 'D3 -  .  D3 -  .  A2 -  D3 -  .  D3 -  .  A2 -',
+  G: 'G2 -  .  G2 -  .  D3 -  G2 -  .  G2 -  .  A2 -', // 末尾 A2 往上接回 C3
+  DG: 'D3 -  .  D3 -  .  A2 -  G2 -  .  G2 -  .  D3 -', // 前半 Dm，后半 G
+  Em: 'E2 -  .  E2 -  .  G2 -  E2 -  .  E2 -  .  D2 -', // B 不在五声音阶里，用小三度 G 代替五度
+  DmLow: 'D2 -  .  D2 -  .  A2 -  D2 -  .  D2 -  .  A2 -',
+};
+const BASS_FORM = ['C', 'Am', 'Dm', 'G', 'C', 'Am', 'DG', 'C', 'Am', 'Em', 'DmLow', 'G', 'C', 'Am', 'DG', 'C'];
+
+const DRUM_PATTERNS = {
+  groove: 'k  .  h  .  s  .  h  .  k  .  h  k  s  .  h  .',
+  fill: 'k  .  h  .  s  .  h  .  k  .  h  k  s  .  s  s', // 句尾小过门
+  roll: 'k  .  h  .  s  .  h  .  k  .  s  .  s  s  s  s', // 进 B 段前的军鼓滚奏
+  drive: 'k  .  h  .  ks .  h  .  k  .  h  .  ks .  h  .', // B 段四拍底鼓，更有推进感
+  lift: 'k  .  h  .  ks .  h  .  k  .  s  .  ks s  s  s', // 回 A 段前的过门
+};
+const DRUM_FORM = ['groove', 'groove', 'groove', 'fill', 'groove', 'groove', 'groove', 'roll', 'drive', 'drive', 'drive', 'lift', 'groove', 'groove', 'groove', 'fill'];
+
+// 每半小节的和弦根音：紧张声部的八度贝斯脉冲跟着它走
+const HARMONY = 'C C A A D D G G C C A A D G C C A A E E D D G G C C A A D G C C'.split(' ');
+
+const NOTE_OFFSETS = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const DRUM_KINDS = { k: 'kick', s: 'snare', h: 'hat' };
+
+// 音名 → MIDI 音高（C4 = 60）
+function noteToMidi(name) {
+  const m = /^([A-G])(#?)(\d)$/.exec(name);
+  if (!m) throw new Error('曲谱里有无法识别的音名：' + name);
+  return 12 * (Number(m[3]) + 1) + NOTE_OFFSETS[m[1]] + (m[2] ? 1 : 0);
+}
+
+// MIDI 音高 → 频率（A4 = 440Hz）
+function mtof(pitch) {
+  return 440 * Math.pow(2, (pitch - 69) / 12);
+}
+
+// 切开一小节的记号，并确认正好 16 个
+function barTokens(bar, index) {
+  const tokens = bar.trim().split(/\s+/);
+  if (tokens.length !== STEPS_PER_BAR) throw new Error(`曲谱第 ${index + 1} 小节应有 ${STEPS_PER_BAR} 个记号，实际 ${tokens.length} 个`);
+  return tokens;
+}
+
+// 旋律 / 贝斯谱 → [{ step, pitch, len }]
+function parseNotes(bars) {
+  const notes = [];
+  let open = null;
+  bars.forEach((bar, b) => {
+    barTokens(bar, b).forEach((tk, i) => {
+      if (tk === '-') {
+        if (open) open.len += 1;
+      } else if (tk === '.') {
+        open = null;
+      } else {
+        open = { step: b * STEPS_PER_BAR + i, pitch: noteToMidi(tk), len: 1 };
+        notes.push(open);
+      }
+    });
+  });
+  return Object.freeze(notes.map((n) => Object.freeze(n)));
+}
+
+// 鼓谱 → [{ step, type }]
+function parseDrums(bars) {
+  const hits = [];
+  bars.forEach((bar, b) => {
+    barTokens(bar, b).forEach((tk, i) => {
+      if (tk === '.') return;
+      for (const c of tk) {
+        const type = DRUM_KINDS[c];
+        if (!type) throw new Error('鼓谱里有无法识别的记号：' + tk);
+        hits.push(Object.freeze({ step: b * STEPS_PER_BAR + i, type }));
+      }
+    });
+  });
+  return Object.freeze(hits);
+}
+
+const SONG = Object.freeze({
+  bpm: 128,
+  bars: 16,
+  stepsPerBar: STEPS_PER_BAR,
+  lead: parseNotes(LEAD_FORM.map((k) => LEAD_PHRASES[k])),
+  bass: parseNotes(BASS_FORM.map((k) => BASS_PATTERNS[k])),
+  drums: parseDrums(DRUM_FORM.map((k) => DRUM_PATTERNS[k])),
+});
+
+// ───────────────────────── 音频引擎 ─────────────────────────
+
+function createAudio() {
+  const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
+  const noop = () => {};
+  if (!AC) return { unlock: noop, setMusic: noop, setSfx: noop, play: noop, startMusic: noop, stopMusic: noop, setTension: noop };
+
+  // ── 常量 ──
+  const MASTER_VOL = 0.8;
+  const MUSIC_VOL = 0.35;
+  const SFX_VOL = 0.9;
+  const MIN = 0.0001; // 指数斜坡的下限：指数斜坡不能到 0
+  const STEP = 60 / SONG.bpm / 4; // 一个十六分音符的时长（秒）
+  const TOTAL = SONG.bars * SONG.stepsPerBar;
+  const TICK_MS = 25; // 调度器每 25ms 检查一次
+  const AHEAD = 0.12; // 提前 0.12s 排程
+  const FADE = 0.15; // stopMusic 的淡出时长（要求 0.2s 内）
+  const TENSION_TAU = 0.2; // 紧张度平滑过渡的时间常数
+  const SFX_DEDUPE = 0.03; // 30ms 内重复触发的同名音效只播一次，防止叠加爆音
+  // 各声部的峰值电平（进总线之前）。带通 / 高通后的噪声能量小，所以军鼓、踩镲的数值偏大
+  const LV = { lead: 0.5, bass: 0.14, kick: 0.45, snare: 0.8, hat: 0.2, tHat: 0.45, tPulse: 0.7, woof: 0.45 };
+  const WOOF_GAIN = [1, 0.5, 1.1]; // 各犬种的响度补偿：小型犬的基频正落在 600Hz 共振峰上，天然更响
+  const ROOT_MIDI = { C: 48, D: 50, E: 52, G: 43, A: 45 };
+
+  // 曲谱按步分桶，排程时直接按步取
+  const leadAt = byStep(SONG.lead);
+  const bassAt = byStep(SONG.bass);
+  const drumAt = byStep(SONG.drums);
+  const rootAt = HARMONY.map((r) => ROOT_MIDI[r]);
+
+  // ── 状态 ──
+  let ctx = null; // 懒创建：第一次 unlock 时才建
+  let musicBus = null;
+  let sfxBus = null;
+  let noiseBuf = null; // 白噪声只生成一次，之后所有噪声声部复用
+  let musicOn = true;
+  let sfxOn = true;
+  let musicWanted = false; // 外部是否要求播放音乐（startMusic / stopMusic）
+  let session = null; // 正在播放的音乐会话
+  let tension = 0;
+  let tensionTail = 0; // 紧张度归零后，紧张声部继续排程到这个时刻，让淡出走完
+  let hidden = false;
+  let warned = false;
+  let asleep = 0; // 上下文没在运行时已排下的音效数
+  const lastAt = {};
+  const glides = new WeakMap(); // AudioParam → 最近一次平滑过渡的轨迹
+
+  function byStep(list) {
+    const buckets = Array.from({ length: TOTAL }, () => []);
+    for (const item of list) buckets[item.step].push(item);
+    return buckets;
+  }
+
+  // ── 生命周期 ──
+
+  // 首次用户手势时调用：创建上下文与总线；重复调用不会重复创建任何东西
+  function unlock() {
+    if (ctx) {
+      // 已解锁：只有上下文被系统挂起 / 打断（如 iOS 来电）且页面可见时，才补一次唤醒
+      if (ctx.state !== 'running' && !hidden) wake();
+      return;
+    }
+    let c = null;
+    try {
+      c = new AC();
+      // 总线：musicBus、sfxBus → master → 扬声器（master 常驻图中，之后无需再引用）
+      const master = c.createGain();
+      const mb = c.createGain();
+      const sb = c.createGain();
+      master.gain.value = MASTER_VOL;
+      mb.gain.value = musicOn ? MUSIC_VOL : 0;
+      sb.gain.value = sfxOn ? SFX_VOL : 0;
+      mb.connect(master);
+      sb.connect(master);
+      master.connect(c.destination);
+      noiseBuf = makeNoise(c);
+      ctx = c;
+      musicBus = mb;
+      sfxBus = sb;
+    } catch (e) {
+      // 浏览器不让建（例如上下文数量超限）：保持未解锁状态，所有调用继续静默
+      ctx = null;
+      noiseBuf = null;
+      if (c && typeof c.close === 'function') settle(safe(() => c.close()));
+      fail(e);
+      return;
+    }
+    wake();
+    if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+      hidden = !!document.hidden;
+      document.addEventListener('visibilitychange', onVisibility);
+    }
+  }
+
+  // 恢复上下文，并播放 1 帧静音：iOS 要在用户手势里真正出过声，输出才会解锁
+  function wake() {
+    settle(safe(() => ctx.resume()));
+    safe(() => {
+      const src = ctx.createBufferSource();
+      src.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+      src.connect(ctx.destination);
+      src.onended = () => src.disconnect();
+      src.start(0);
+    });
+  }
+
+  // 页面切到后台时暂停上下文，回到前台再恢复（只在已解锁且有 document 时绑定）
+  function onVisibility() {
+    if (document.hidden) {
+      hidden = true;
+      settle(safe(() => ctx.suspend()));
+    } else {
+      hidden = false;
+      settle(safe(() => ctx.resume()));
+    }
+  }
+
+  function makeNoise(c) {
+    const len = Math.floor(c.sampleRate); // 1 秒白噪声，按随机偏移取用
+    const buf = c.createBuffer(1, len, c.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    return buf;
+  }
+
+  // ── 开关 ──
+
+  function setMusic(on) {
+    musicOn = !!on;
+    if (!ctx) return; // 未解锁：只记住设置，解锁时按它建总线
+    glide(musicBus.gain, musicOn ? MUSIC_VOL : 0, 0.05);
+    if (!musicOn) endSession(); // 关掉就停止排程，省电；想听的意愿保留
+    else if (musicWanted && !session) beginSession();
+  }
+
+  function setSfx(on) {
+    sfxOn = !!on;
+    if (ctx) glide(sfxBus.gain, sfxOn ? SFX_VOL : 0, 0.02);
+  }
+
+  // ── 音乐 ──
+
+  function startMusic() {
+    if (!ctx) return; // 解锁前调用：静默忽略，不排队
+    musicWanted = true;
+    if (musicOn && !session) beginSession();
+  }
+
+  function stopMusic() {
+    musicWanted = false;
+    endSession();
+  }
+
+  function setTension(level) {
+    const x = Number(level);
+    const lv = Number.isFinite(x) ? Math.min(1, Math.max(0, x)) : 0;
+    if (lv === tension) return;
+    if (ctx && lv === 0) tensionTail = ctx.currentTime + TENSION_TAU * 6;
+    tension = lv;
+    if (session) glide(session.tg.gain, 0.5 * lv, TENSION_TAU);
+  }
+
+  // 每次开始播放都新建一组会话节点：out 负责整体淡出，tg 是紧张声部的增益
+  function beginSession() {
+    const out = ctx.createGain();
+    const tg = ctx.createGain();
+    tg.gain.value = 0.5 * tension;
+    tg.connect(out);
+    out.connect(musicBus);
+    const s = { out, tg, step: 0, next: ctx.currentTime + 0.06, timer: 0 };
+    session = s;
+    s.timer = setInterval(() => tick(s), TICK_MS);
+    tick(s);
+  }
+
+  function endSession() {
+    const s = session;
+    if (!s) return;
+    session = null;
+    clearInterval(s.timer);
+    // 0.15s 线性淡出到 0；已排进未来的音符随之被压掉
+    safe(() => {
+      const now = ctx.currentTime;
+      const g = s.out.gain;
+      const v = g.value;
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(v, now);
+      g.linearRampToValueAtTime(0, now + FADE);
+    });
+    // 淡出结束后断开会话节点；残留音符的节点会在各自结束时自行断开
+    setTimeout(() => {
+      s.tg.disconnect();
+      s.out.disconnect();
+    }, (FADE + 0.25) * 1000);
+  }
+
+  // 前瞻调度：每 25ms 检查一次，把 0.12s 内要响的步排进音频时钟
+  function tick(s) {
+    if (session !== s) return;
+    try {
+      const now = ctx.currentTime;
+      if (s.next < now - 0.05) {
+        // 主线程卡顿导致落后：整步跳过，不把错过的音符挤成一团补发
+        const skip = Math.ceil((now - s.next) / STEP);
+        s.next += skip * STEP;
+        s.step = (s.step + skip) % TOTAL;
+      }
+      while (s.next < now + AHEAD) {
+        playStep(s, s.step, s.next);
+        s.next += STEP;
+        s.step = (s.step + 1) % TOTAL;
+      }
+    } catch (e) {
+      fail(e);
+      endSession(); // 合成出错就停掉音乐，避免每 25ms 报一次错
+    }
+  }
+
+  function playStep(s, step, t) {
+    for (const n of leadAt[step]) lead(s.out, n.pitch, t);
+    for (const n of bassAt[step]) bass(s.out, n.pitch, n.len * STEP, t);
+    for (const d of drumAt[step]) {
+      if (d.type === 'kick') kick(s.out, t, LV.kick);
+      else if (d.type === 'snare') snare(s.out, t, LV.snare);
+      else hat(s.out, t, LV.hat, 0.04, 7000);
+    }
+    if (tension > 0 || t < tensionTail) tensionStep(s.tg, step, t);
+  }
+
+  // 紧张声部：十六分音符踩镲 + 八分音符的八度贝斯脉冲（低八度 / 高八度交替）
+  function tensionStep(dest, step, t) {
+    const pos = step % 4;
+    hat(dest, t, LV.tHat * (pos === 2 ? 1 : pos === 0 ? 0.45 : 0.65), 0.03, 8000);
+    if (step % 2 === 0) {
+      const root = rootAt[Math.floor(step / 8)];
+      pulse(dest, pos === 0 ? root : root + 12, t);
+    }
+  }
+
+  // ── 音效 ──
+
+  function play(name, opts) {
+    if (!ctx || !sfxOn || hidden) return; // 解锁前 / 音效关闭 / 页面在后台：静默忽略，不排队
+    if (SFX_NAMES.indexOf(name) < 0) return;
+    const now = ctx.currentTime;
+    const prev = lastAt[name];
+    if (prev !== undefined && now - prev < SFX_DEDUPE) return;
+    if (ctx.state !== 'running') {
+      // 上下文没在跑（刚解锁还在 resume，或 iOS 回前台后被打断）：play 多半在点击里调用，顺手唤醒；
+      // 时钟停着时排下的声音会等醒来一齐响，所以最多只攒 4 个
+      if (asleep >= 4) return;
+      asleep += 1;
+      wake();
+    } else {
+      asleep = 0;
+    }
+    lastAt[name] = now;
+    try {
+      SFX[name](now + 0.01, opts || {});
+    } catch (e) {
+      fail(e);
+    }
+  }
+
+  const SFX = {
+    // 点牌：短促的「啵」，正弦 880→660Hz，40ms
+    tap(t) {
+      const v = voice();
+      const env = amp(v, sfxBus);
+      perc(env.gain, t, 0.35, 0.003, 0.037);
+      tone(v, env, 'sine', 880, t, t + 0.045).frequency.exponentialRampToValueAtTime(660, t + 0.04);
+    },
+
+    // 入槽：木头轻敲，三角波 300Hz 叠加带通噪声，60ms
+    place(t) {
+      const v = voice();
+      const body = amp(v, sfxBus);
+      perc(body.gain, t, 0.5, 0.002, 0.058);
+      tone(v, body, 'triangle', 300, t, t + 0.065);
+      const knock = amp(v, sfxBus);
+      perc(knock.gain, t, 0.35, 0.001, 0.03);
+      noise(v, filt(v, knock, 'bandpass', 1700, 3), t, 0.035);
+    },
+
+    // 三消：三音上行琶音（C5 E5 G5）；combo 从 1 起，每 +1 整体升 2 个半音，最多升 12
+    match(t, o) {
+      const combo = Math.max(1, toInt(o.combo, 1));
+      const shift = Math.min(12, 2 * (combo - 1));
+      [72, 76, 79].forEach((p, i) => {
+        const last = i === 2;
+        bell(sfxBus, p + shift, t + i * 0.07, last ? 0.5 : 0.4, last ? 0.34 : 0.15);
+      });
+    },
+
+    // 狗叫：0 中型犬 350Hz；1 小型犬 600Hz；2 大型犬 200Hz 连叫两声
+    woof(t, o) {
+      const variant = toInt(o.variant, 0);
+      if (variant === 1) {
+        bark(t, 600, WOOF_GAIN[1]);
+      } else if (variant === 2) {
+        bark(t, 200, WOOF_GAIN[2]);
+        bark(t + 0.22, 190, WOOF_GAIN[2] * 0.85);
+      } else {
+        bark(t, 350, WOOF_GAIN[0]);
+      }
+    },
+
+    // 移出：上扬的嗖声——噪声带通扫频 + 正弦上滑
+    moveOut(t) {
+      const v = voice();
+      const d = 0.3;
+      const whoosh = amp(v, sfxBus);
+      whoosh.gain.setValueAtTime(MIN, t);
+      whoosh.gain.linearRampToValueAtTime(0.6, t + d * 0.6);
+      whoosh.gain.exponentialRampToValueAtTime(MIN, t + d);
+      const bp = filt(v, whoosh, 'bandpass', 500, 2.5);
+      bp.frequency.setValueAtTime(500, t);
+      bp.frequency.exponentialRampToValueAtTime(5000, t + d);
+      noise(v, bp, t, d);
+      const sing = amp(v, sfxBus);
+      sing.gain.setValueAtTime(MIN, t);
+      sing.gain.linearRampToValueAtTime(0.25, t + d * 0.5);
+      sing.gain.exponentialRampToValueAtTime(MIN, t + d);
+      tone(v, sing, 'sine', 350, t, t + d).frequency.exponentialRampToValueAtTime(1400, t + d);
+    },
+
+    // 撤回：倒带声——正弦 800→300Hz 下滑，同时叠 16Hz 颤音
+    undo(t) {
+      const v = voice();
+      const d = 0.28;
+      const env = amp(v, sfxBus);
+      env.gain.setValueAtTime(MIN, t);
+      env.gain.linearRampToValueAtTime(0.18, t + 0.015);
+      env.gain.setValueAtTime(0.18, t + d * 0.6);
+      env.gain.exponentialRampToValueAtTime(MIN, t + d);
+      const o = tone(v, env, 'sine', 800, t, t + d);
+      o.frequency.exponentialRampToValueAtTime(300, t + d);
+      tone(v, amp(v, o.detune, 70), 'sine', 16, t, t + d); // 颤音深度 ±70 音分
+    },
+
+    // 洗牌：连续 6 个短噪声颗粒，像纸牌哗啦啦
+    shuffle(t) {
+      const v = voice();
+      for (let i = 0; i < 6; i++) {
+        const tt = t + i * 0.055 + (i ? Math.random() * 0.012 : 0); // 第一粒准时，后面带点随机更像手搓
+        const env = amp(v, sfxBus);
+        perc(env.gain, tt, 0.7 + Math.random() * 0.25, 0.002, 0.028);
+        noise(v, filt(v, env, 'bandpass', 2200 + Math.random() * 2600, 1), tt, 0.032);
+      }
+    },
+
+    // 卡槽将满：心跳，两个低频的「咚」
+    warn(t) {
+      thump(t, 1);
+      thump(t + 0.17, 0.75);
+    },
+
+    // 点到被压住的牌：闷响，正弦 120Hz，80ms
+    deny(t) {
+      const v = voice();
+      const env = amp(v, sfxBus);
+      perc(env.gain, t, 0.5, 0.004, 0.076);
+      tone(v, env, 'sine', 120, t, t + 0.08);
+      // 手机小喇叭几乎放不出 120Hz：叠一点 2、3 次谐波，音高仍听作 120Hz 的闷响，但手机上听得见
+      tone(v, amp(v, env, 0.5), 'sine', 240, t, t + 0.08);
+      tone(v, amp(v, env, 0.25), 'sine', 360, t, t + 0.08);
+    },
+
+    // 通关：大三和弦号角（嗒-嗒-嗒——）+ 上行音阶，再接一声小型犬欢叫（woof 变体 1）
+    win(t) {
+      const chord = [60, 72, 76, 79]; // C4 C5 E5 G5
+      horn(chord, t, 0.1);
+      horn(chord, t + 0.13, 0.1);
+      horn(chord, t + 0.26, 0.42);
+      const scale = [72, 74, 76, 77, 79, 81, 83, 84]; // C5 → C6 大调音阶
+      const s0 = t + 0.72;
+      scale.forEach((p, i) => {
+        const last = i === scale.length - 1;
+        bell(sfxBus, p, s0 + i * 0.055, last ? 0.36 : 0.3, last ? 0.4 : 0.12);
+      });
+      bark(s0 + scale.length * 0.055 + 0.1, 600, WOOF_GAIN[1]);
+    },
+
+    // 失败：悲伤的长号 G→F#→F→E（锯齿波 + 低通），最后一个音拖长带颤音，再接一声呜咽
+    lose(t) {
+      const v = voice();
+      const pitches = [55, 54, 53, 52]; // G3 F#3 F3 E3
+      const durs = [0.3, 0.3, 0.3, 1.0];
+      const total = durs.reduce((a, b) => a + b, 0);
+      const env = amp(v, sfxBus);
+      const lp = filt(v, env, 'lowpass', 450, 4);
+      const o = tone(v, lp, 'sawtooth', mtof(pitches[0]), t, t + total + 0.02);
+      env.gain.setValueAtTime(MIN, t);
+      lp.frequency.setValueAtTime(450, t);
+      let tt = t;
+      pitches.forEach((p, i) => {
+        const d = durs[i];
+        const f = mtof(p);
+        if (i > 0) {
+          // 长号的滑音：从上一个音滑进来
+          o.frequency.setValueAtTime(mtof(pitches[i - 1]), tt);
+          o.frequency.exponentialRampToValueAtTime(f, tt + 0.05);
+        }
+        // 每个音「哇」一下：音量推起，滤波器同时张开再收拢
+        env.gain.linearRampToValueAtTime(0.34, tt + 0.05);
+        lp.frequency.exponentialRampToValueAtTime(1500, tt + 0.1);
+        if (i < pitches.length - 1) {
+          env.gain.linearRampToValueAtTime(0.24, tt + d - 0.05);
+          env.gain.linearRampToValueAtTime(0.1, tt + d); // 音与音之间轻轻断开
+          lp.frequency.exponentialRampToValueAtTime(450, tt + d);
+        } else {
+          env.gain.linearRampToValueAtTime(0.28, tt + d * 0.6);
+          env.gain.exponentialRampToValueAtTime(MIN, tt + d);
+          lp.frequency.exponentialRampToValueAtTime(300, tt + d);
+          o.frequency.exponentialRampToValueAtTime(f * 0.97, tt + d); // 尾音往下耷拉
+          const vib = amp(v, o.detune, 0); // 颤音逐渐加深到 ±40 音分
+          vib.gain.setValueAtTime(0, tt);
+          vib.gain.linearRampToValueAtTime(40, tt + 0.35);
+          tone(v, vib, 'sine', 5.5, tt, tt + d);
+        }
+        tt += d;
+      });
+      whimper(t + total + 0.05);
+    },
+
+    // 复活：魔法闪光——高音五声音阶快速上行，带颤音
+    revive(t) {
+      const v = voice();
+      const notes = [84, 86, 88, 91, 93, 96, 98, 100]; // C6 D6 E6 G6 A6 C7 D7 E7
+      const gap = 0.045;
+      const end = t + (notes.length - 1) * gap + 0.6;
+      const vib = amp(v, null, 25); // 颤音深度 ±25 音分，所有音共用一个 LFO
+      tone(v, vib, 'sine', 7, t, end);
+      notes.forEach((p, i) => {
+        const tt = t + i * gap;
+        const last = i === notes.length - 1;
+        const decay = last ? 0.55 : 0.26;
+        const env = amp(v, sfxBus);
+        perc(env.gain, tt, last ? 0.3 : 0.24, 0.004, decay);
+        const o = tone(v, env, i % 2 ? 'triangle' : 'sine', mtof(p), tt, tt + decay + 0.01);
+        vib.connect(o.detune);
+      });
+    },
+
+    // 界面按钮：很轻的「嗒」
+    button(t) {
+      const v = voice();
+      const env = amp(v, sfxBus);
+      perc(env.gain, t, 0.12, 0.001, 0.02);
+      tone(v, env, 'sine', 1500, t, t + 0.025).frequency.exponentialRampToValueAtTime(1000, t + 0.021);
+    },
+  };
+
+  // ── 乐器 ──
+
+  // 主旋律：三角波与方波按 7:3 混合，拨弦包络（起音 5ms、衰减 180ms）
+  function lead(dest, pitch, t) {
+    const v = voice();
+    const env = amp(v, dest);
+    perc(env.gain, t, LV.lead, 0.005, 0.18);
+    const f = mtof(pitch);
+    const end = t + 0.2;
+    tone(v, amp(v, env, 0.7), 'triangle', f, t, end);
+    tone(v, amp(v, env, 0.3), 'square', f, t, end);
+  }
+
+  // 贝斯：方波经 800Hz 低通；按音符时值保持，带一点自然衰减
+  function bass(dest, pitch, dur, t) {
+    const v = voice();
+    const env = amp(v, dest);
+    const hold = Math.max(0.05, dur - 0.03);
+    env.gain.setValueAtTime(MIN, t);
+    env.gain.linearRampToValueAtTime(LV.bass, t + 0.006);
+    env.gain.exponentialRampToValueAtTime(LV.bass * 0.55, t + hold);
+    env.gain.exponentialRampToValueAtTime(MIN, t + hold + 0.04);
+    tone(v, filt(v, env, 'lowpass', 800, 1), 'square', mtof(pitch), t, t + hold + 0.05);
+  }
+
+  // 底鼓：正弦波，频率 0.12s 内从 150Hz 滑到 45Hz
+  function kick(dest, t, level) {
+    const v = voice();
+    const env = amp(v, dest);
+    perc(env.gain, t, level, 0.002, 0.2);
+    tone(v, env, 'sine', 150, t, t + 0.23).frequency.exponentialRampToValueAtTime(45, t + 0.12);
+  }
+
+  // 军鼓：白噪声经 1800Hz 带通，0.12s
+  function snare(dest, t, level) {
+    const v = voice();
+    const env = amp(v, dest);
+    perc(env.gain, t, level, 0.002, 0.118);
+    noise(v, filt(v, env, 'bandpass', 1800, 1), t, 0.12);
+  }
+
+  // 踩镲：白噪声经高通（主鼓组 7000Hz / 0.04s）
+  function hat(dest, t, level, dur, cutoff) {
+    const v = voice();
+    const env = amp(v, dest);
+    perc(env.gain, t, level, 0.001, dur - 0.001);
+    noise(v, filt(v, env, 'highpass', cutoff, 1), t, dur);
+  }
+
+  // 紧张声部的贝斯脉冲：短促的方波
+  function pulse(dest, pitch, t) {
+    const v = voice();
+    const env = amp(v, dest);
+    perc(env.gain, t, LV.tPulse, 0.003, 0.12);
+    tone(v, filt(v, env, 'lowpass', 1200, 2), 'square', mtof(pitch), t, t + 0.13);
+  }
+
+  // 明亮的铃音：三角波 + 高八度正弦
+  function bell(dest, pitch, t, level, decay) {
+    const v = voice();
+    const env = amp(v, dest);
+    perc(env.gain, t, level, 0.004, decay);
+    const f = mtof(pitch);
+    const end = t + decay + 0.02;
+    tone(v, env, 'triangle', f, t, end);
+    tone(v, amp(v, env, 0.25), 'sine', f * 2, t, end);
+  }
+
+  // 一声「汪」（150ms）：锯齿波基频先滑升再滑落，叠一点噪声，经 600Hz / 1200Hz 两个共振峰带通
+  function bark(t, f0, k) {
+    const v = voice();
+    const d = 0.15;
+    const env = amp(v, sfxBus);
+    env.gain.setValueAtTime(MIN, t);
+    env.gain.linearRampToValueAtTime(LV.woof * k, t + 0.008);
+    env.gain.exponentialRampToValueAtTime(LV.woof * k * 0.55, t + 0.07);
+    env.gain.exponentialRampToValueAtTime(MIN, t + d);
+    const f1 = filt(v, amp(v, env, 2.4), 'bandpass', 600, 4);
+    const f2 = filt(v, amp(v, env, 1.5), 'bandpass', 1200, 5);
+    const src = amp(v, null, 1);
+    src.connect(f1);
+    src.connect(f2);
+    const o = tone(v, src, 'sawtooth', f0 * 0.8, t, t + d + 0.01);
+    o.frequency.exponentialRampToValueAtTime(f0 * 1.15, t + 0.035); // 先滑升
+    o.frequency.exponentialRampToValueAtTime(f0 * 0.62, t + d); // 再滑落
+    noise(v, amp(v, src, 0.35), t, d);
+  }
+
+  // 号角：几个锯齿波叠成和弦，低通随包络张开，出「铜管」味
+  function horn(pitches, t, d) {
+    const v = voice();
+    const env = amp(v, sfxBus);
+    env.gain.setValueAtTime(MIN, t);
+    env.gain.linearRampToValueAtTime(0.45, t + 0.02);
+    env.gain.setValueAtTime(0.45, t + Math.max(0.03, d - 0.05));
+    env.gain.exponentialRampToValueAtTime(MIN, t + d + 0.06);
+    const lp = filt(v, env, 'lowpass', 600, 2);
+    lp.frequency.setValueAtTime(600, t);
+    lp.frequency.exponentialRampToValueAtTime(3000, t + 0.04);
+    lp.frequency.exponentialRampToValueAtTime(1600, t + d);
+    const mix = amp(v, lp, 1 / pitches.length);
+    pitches.forEach((p, i) => {
+      const o = tone(v, mix, 'sawtooth', mtof(p), t, t + d + 0.07);
+      o.detune.value = (i - 1.5) * 4; // 轻微失谐，更像一组铜管
+    });
+  }
+
+  // 心跳的一下「咚」：方波 110→55Hz，低通从 700Hz 收到 150Hz。
+  // 开头几十毫秒带着泛音（手机小喇叭靠它听见），随后只剩低沉的「咚」
+  function thump(t, k) {
+    const v = voice();
+    const env = amp(v, sfxBus);
+    perc(env.gain, t, 0.45 * k, 0.004, 0.14);
+    const lp = filt(v, env, 'lowpass', 700, 1);
+    lp.frequency.setValueAtTime(700, t);
+    lp.frequency.exponentialRampToValueAtTime(150, t + 0.12);
+    tone(v, lp, 'square', 110, t, t + 0.15).frequency.exponentialRampToValueAtTime(55, t + 0.12);
+  }
+
+  // 呜咽：正弦 700→400Hz 滑落，带一点抽泣似的颤动
+  function whimper(t) {
+    const v = voice();
+    const d = 0.5;
+    const env = amp(v, sfxBus);
+    env.gain.setValueAtTime(MIN, t);
+    env.gain.linearRampToValueAtTime(0.22, t + 0.05);
+    env.gain.linearRampToValueAtTime(0.16, t + d * 0.7);
+    env.gain.exponentialRampToValueAtTime(MIN, t + d);
+    const o = tone(v, env, 'sine', 700, t, t + d);
+    o.frequency.exponentialRampToValueAtTime(400, t + d);
+    tone(v, amp(v, o.detune, 30), 'sine', 7, t, t + d);
+  }
+
+  // ── 合成小工具 ──
+
+  // 一次发声用到的节点都登记在这里；全部声源结束后统一 disconnect，长时间运行也不泄漏
+  function voice() {
+    const nodes = [];
+    let live = 0;
+    const done = () => {
+      live -= 1;
+      if (live > 0) return;
+      for (const n of nodes) n.disconnect();
+      nodes.length = 0;
+    };
+    return {
+      add(node) {
+        nodes.push(node);
+        return node;
+      },
+      run(src, t0, t1, offset) {
+        nodes.push(src);
+        live += 1;
+        src.onended = done;
+        if (offset === undefined) src.start(t0);
+        else src.start(t0, offset);
+        src.stop(t1);
+        return src;
+      },
+    };
+  }
+
+  // 增益节点（默认 0，作包络用）；dest 为 null 时先不连接
+  function amp(v, dest, value = 0) {
+    const g = v.add(ctx.createGain());
+    g.gain.value = value;
+    if (dest) g.connect(dest);
+    return g;
+  }
+
+  function filt(v, dest, type, freq, q) {
+    const f = v.add(ctx.createBiquadFilter());
+    f.type = type;
+    f.frequency.value = freq;
+    f.Q.value = q;
+    f.connect(dest);
+    return f;
+  }
+
+  function tone(v, dest, type, freq, t0, t1) {
+    const o = ctx.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(freq, t0);
+    o.connect(dest);
+    return v.run(o, t0, t1);
+  }
+
+  // 从共享白噪声里随机截一段播放
+  function noise(v, dest, t0, dur) {
+    const s = ctx.createBufferSource();
+    s.buffer = noiseBuf;
+    s.connect(dest);
+    const offset = Math.random() * Math.max(0, noiseBuf.duration - dur - 0.01);
+    return v.run(s, t0, t0 + dur, offset);
+  }
+
+  // 打击型包络：从极小值线性起音到 peak；衰减段先用 88% 的时间指数落到 -40dB，
+  // 再快速收到极小值。直接一口气指数落到 0.0001 的话，有效时长只剩标称的三分之一，听起来像咔哒声。
+  function perc(param, t, peak, attack, decay) {
+    param.setValueAtTime(MIN, t);
+    param.linearRampToValueAtTime(peak, t + attack);
+    param.exponentialRampToValueAtTime(Math.max(MIN, peak * 0.01), t + attack + decay * 0.88);
+    param.exponentialRampToValueAtTime(MIN, t + attack + decay);
+  }
+
+  // 平滑过渡：先按当前实际值钉住，再指数逼近目标（代替 Firefox 不支持的 cancelAndHoldAtTime）。
+  // 当前值按上一次滑动的公式自己算，不依赖各浏览器 param.value 在自动化进行中返回什么。
+  function glide(param, target, tau) {
+    const now = ctx.currentTime;
+    const g = glides.get(param);
+    const v = g ? g.to + (g.from - g.to) * Math.exp(-Math.max(0, now - g.at) / g.tau) : param.value;
+    param.cancelScheduledValues(now);
+    param.setValueAtTime(v, now);
+    param.setTargetAtTime(target, now, tau);
+    glides.set(param, { from: v, to: target, at: now, tau });
+  }
+
+  function toInt(x, fallback) {
+    const n = Number(x);
+    return Number.isFinite(n) ? Math.floor(n) : fallback;
+  }
+
+  function safe(fn) {
+    try {
+      return fn();
+    } catch (e) {
+      return undefined;
+    }
+  }
+
+  // resume / suspend / close 返回的 Promise 可能被拒绝（例如不在用户手势里），吞掉以免控制台报错
+  function settle(p) {
+    if (p && typeof p.catch === 'function') p.catch(noop);
+  }
+
+  // 音频出错只提示一次，绝不影响游戏流程
+  function fail(e) {
+    if (warned) return;
+    warned = true;
+    if (typeof console !== 'undefined') console.warn('[audio] 合成出错，已忽略：', e);
+  }
+
+  return { unlock, setMusic, setSfx, play, startMusic, stopMusic, setTension };
+}
+return { SFX_NAMES, SONG, createAudio };
+})();
+// ---- ui/storage.js ----
+const __m_ui_storage_js = (() => {
+
+// 本地存档：设置、狗群阵营、每日记录与统计；存储不可用或存档损坏时退回默认值，只在内存里运行
+const SAVE_KEY = 'glgg:v1';
+
+function defaultSave() {
+  return {
+    settings: { music: true, sfx: true, vibrate: true },
+    team: null,
+    daily: {},
+    stats: { plays: 0, wins: 0, dailyWins: 0, streak: 0, lastDailyWin: null, dogsContributed: 0 },
+  };
+}
+
+function dateKey(d = new Date()) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function prevDateKey(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return dateKey(new Date(y, m - 1, d - 1));
+}
+
+const emptyDay = () => ({ l1: false, l2: false, attempts: 0, bestRemaining: null });
+
+function createStore(storage) {
+  const save = defaultSave();
+  try {
+    const raw = storage ? storage.getItem(SAVE_KEY) : null;
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data && typeof data === 'object') {
+        Object.assign(save.settings, data.settings);
+        Object.assign(save.stats, data.stats);
+        if (data.daily && typeof data.daily === 'object') save.daily = data.daily;
+        if (typeof data.team === 'string') save.team = data.team;
+      }
+    }
+  } catch { /* 存档损坏或存储不可读：用默认值 */ }
+
+  const persist = () => {
+    try { if (storage) storage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* 隐私模式、配额已满：忽略 */ }
+  };
+  const day = (key) => {
+    if (!save.daily[key]) save.daily[key] = emptyDay();
+    return save.daily[key];
+  };
+
+  return {
+    get data() { return save; },
+    peekDay: (key) => save.daily[key] || emptyDay(),
+    setSetting(name, value) { save.settings[name] = value; persist(); },
+    setTeam(team) { save.team = team; persist(); },
+    recordPlay() { save.stats.plays++; persist(); },
+    recordLoss(key, remaining) {
+      const d = day(key);
+      d.attempts++;
+      if (d.bestRemaining === null || remaining < d.bestRemaining) d.bestRemaining = remaining;
+      persist();
+    },
+    recordWin({ daily, level, key }) {
+      save.stats.wins++;
+      if (daily && level === 'daily1') day(key).l1 = true;
+      if (daily && level === 'daily2') {
+        const d = day(key);
+        d.attempts++;
+        d.bestRemaining = 0;
+        if (!d.l2) {
+          d.l2 = true;
+          const s = save.stats;
+          s.dailyWins++;
+          s.dogsContributed++;
+          s.streak = s.lastDailyWin === prevDateKey(key) ? s.streak + 1 : 1;
+          s.lastDailyWin = key;
+        }
+      }
+      persist();
+    },
+    currentStreak(today) {
+      const s = save.stats;
+      return s.lastDailyWin === today || s.lastDailyWin === prevDateKey(today) ? s.streak : 0;
+    },
+  };
+}
+return { SAVE_KEY, defaultSave, dateKey, prevDateKey, createStore };
+})();
+// ---- ui/platform.js ----
+const __m_ui_platform_js = (() => {
+const { BREEDS } = __m_art_dogs_js;
+// claude.ai 平台能力的渐进增强：room（在线狗友与通关广播）、sample（AI 狗评）、downloads（保存战绩图）、hot（热更新续玩）
+// 普通网页里 globalThis.claude 不存在，所有能力为空，页面照常运行
+
+
+const TEAM_KEYS = new Set(BREEDS.map((b) => b.key));
+
+function sanitizeTeam(value) {
+  return typeof value === 'string' && TEAM_KEYS.has(value) ? value : null;
+}
+
+// 在线人数与各阵营人数：只数真人（kind === 'viewer'），阵营只认白名单
+function summarizePeers(peers) {
+  const teams = {};
+  let total = 0;
+  for (const p of peers || []) {
+    if (p.kind !== 'viewer') continue;
+    total++;
+    const t = sanitizeTeam(p.presence && p.presence.team);
+    if (t) teams[t] = (teams[t] || 0) + 1;
+  }
+  return { total, teams };
+}
+
+function buildRoastPrompt(s) {
+  const result = s.result === 'won' ? '通关' : `失败，还剩 ${s.remaining} 张没消`;
+  return [
+    '你是网页小游戏「狗了个狗」里的柴犬吉祥物。玩法和《羊了个羊》一样：点牌进 7 格卡槽，三张相同就消除，卡槽满了就输。',
+    '请用柴犬的口吻、简体中文，写两到三句话点评玩家这一局：毒舌但友善、好笑、有梗，可以带一两个「汪」；不要使用表情符号，不超过 90 个字，不要逐条复述数据。',
+    `本局数据：关卡「${s.levelName}」；结果：${result}；用时 ${s.seconds} 秒；拿牌 ${s.moves} 次；用了道具 ${s.propsUsed} 次（移出 ${s.used.moveOut}、撤回 ${s.used.undo}、洗牌 ${s.used.shuffle}、复活 ${s.used.revive}）；玩家阵营：${s.teamName || '还没加入狗群'}。`,
+    '直接输出点评正文。',
+  ].join('\n');
+}
+
+function initPlatform({ onPeers, onWinBroadcast, onChange } = {}) {
+  const api = { inClaude: false, room: null, sample: null, downloads: null };
+  const c = globalThis.claude;
+  if (!c || typeof c.use !== 'function') return api;
+  api.inClaude = true;
+  const use = (name) => Promise.resolve().then(() => c.use(name)).catch(() => null);
+  use('room').then((room) => {
+    if (!room) return;
+    try {
+      room.onPeers((change) => onPeers?.(summarizePeers(change.peers)), () => onPeers?.(null));
+      room.on('win', (msg) => { if (!msg.sameTab) onWinBroadcast?.(sanitizeTeam(msg.data && msg.data.team), !!msg.isMe); });
+      api.room = room;
+    } catch { api.room = null; }
+    onChange?.(api);
+  });
+  use('sample').then((sample) => { if (sample) { api.sample = sample; onChange?.(api); } });
+  use('downloads').then((downloads) => { if (downloads) { api.downloads = downloads; onChange?.(api); } });
+  return api;
+}
+
+function setPresence(api, patch) {
+  if (!api.room) return;
+  Promise.resolve().then(() => api.room.presence({ ...patch, team: sanitizeTeam(patch.team) })).catch(() => {});
+}
+
+function broadcastWin(api, team) {
+  if (!api.room) return;
+  Promise.resolve().then(() => api.room.emit('win', { team: sanitizeTeam(team) })).catch(() => {});
+}
+
+async function aiRoast(api, summary, onText, signal) {
+  if (!api.sample) throw { code: 'unavailable', message: '当前环境不支持 AI 狗评' };
+  const res = await api.sample(buildRoastPrompt(summary), {
+    onText: ({ text }) => onText(text),
+    modelTier: 'quick',
+    cache: false,
+    signal,
+  });
+  return res.text;
+}
+
+// 热更新续玩：页面重新发布后，用快照里的动作日志恢复对局
+function hotBoot(start) {
+  const hot = globalThis.claude && globalThis.claude.hot;
+  if (hot && typeof hot.ready === 'function') {
+    try { hot.ready(start); return; } catch { /* 退回普通启动 */ }
+  }
+  start((hot && hot.data) || {});
+}
+
+function hotSnapshot(fn) {
+  const hot = globalThis.claude && globalThis.claude.hot;
+  if (hot && typeof hot.snapshot === 'function') {
+    try { hot.snapshot(fn); } catch { /* 不支持就算了 */ }
+  }
+}
+return { sanitizeTeam, summarizePeers, buildRoastPrompt, initPlatform, setPresence, broadcastWin, aiRoast, hotBoot, hotSnapshot };
+})();
+// ---- ui/fx.js ----
+const __m_ui_fx_js = (() => {
+
+// Canvas 特效层：消除时的骨头/爪印/星星爆点与通关彩带；没有粒子时停止动画循环
+const PALETTE = ['#FF8A1F', '#FFD43B', '#43A047', '#29B6F6', '#F06292', '#8E44AD', '#FFFFFF'];
+const rand = (a, b) => a + Math.random() * (b - a);
+
+function createFx(canvas) {
+  const ctx = canvas.getContext('2d');
+  const reduce = !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  let parts = [];
+  let raf = 0;
+  let last = 0;
+  let w = 0;
+  let h = 0;
+
+  function resize() {
+    const r = canvas.getBoundingClientRect();
+    const dpr = Math.min(2, globalThis.devicePixelRatio || 1);
+    w = r.width;
+    h = r.height;
+    canvas.width = Math.max(1, Math.round(w * dpr));
+    canvas.height = Math.max(1, Math.round(h * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  const circle = (x, y, r) => { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); };
+
+  function draw(p) {
+    const s = p.size;
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life / p.fade));
+    ctx.fillStyle = p.color;
+    ctx.strokeStyle = '#3B2A1A';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    if (p.shape === 'bone') {
+      circle(-s * 0.55, -s * 0.2, s * 0.26);
+      circle(-s * 0.55, s * 0.2, s * 0.26);
+      circle(s * 0.55, -s * 0.2, s * 0.26);
+      circle(s * 0.55, s * 0.2, s * 0.26);
+      ctx.rect(-s * 0.55, -s * 0.16, s * 1.1, s * 0.32);
+      ctx.fill();
+    } else if (p.shape === 'paw') {
+      ctx.ellipse(0, s * 0.18, s * 0.34, s * 0.28, 0, 0, Math.PI * 2);
+      for (const [dx, dy] of [[-0.38, -0.2], [-0.13, -0.42], [0.13, -0.42], [0.38, -0.2]]) circle(dx * s, dy * s, s * 0.13);
+      ctx.fill();
+    } else if (p.shape === 'star') {
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 ? s * 0.22 : s * 0.5;
+        const a = (i * Math.PI) / 5 - Math.PI / 2;
+        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if (p.shape === 'rect') {
+      ctx.rect(-s / 2, -s / 4, s, s / 2);
+      ctx.fill();
+    } else {
+      circle(0, 0, s * 0.3);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function frame(t) {
+    const dt = Math.min(0.05, last ? (t - last) / 1000 : 1 / 60);
+    last = t;
+    ctx.clearRect(0, 0, w, h);
+    parts = parts.filter((p) => (p.life -= dt) > 0 && p.y < h + 80);
+    const k = (d) => Math.pow(d, dt * 60);
+    for (const p of parts) {
+      p.vy += p.g * dt;
+      p.vx *= k(p.drag);
+      p.vy *= k(p.drag);
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.rot += p.vr * dt;
+      draw(p);
+    }
+    if (parts.length) raf = requestAnimationFrame(frame);
+    else { raf = 0; last = 0; ctx.clearRect(0, 0, w, h); }
+  }
+  const kick = () => { if (!raf) raf = requestAnimationFrame(frame); };
+
+  function burst(x, y, color) {
+    if (reduce) return;
+    const shapes = ['bone', 'paw', 'star', 'dot'];
+    for (let i = 0; i < 16; i++) {
+      const a = rand(0, Math.PI * 2);
+      const v = rand(160, 420);
+      parts.push({
+        shape: shapes[i % 4], x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 160, g: 900, drag: 0.985,
+        rot: rand(0, 6.28), vr: rand(-8, 8), size: rand(10, 18),
+        color: i % 3 === 0 ? PALETTE[i % PALETTE.length] : color, life: rand(0.55, 0.9), fade: 0.3,
+      });
+    }
+    kick();
+  }
+
+  function confetti() {
+    if (reduce) return;
+    for (let i = 0; i < 140; i++) {
+      parts.push({
+        shape: i % 5 === 0 ? 'bone' : 'rect', x: rand(0, w), y: rand(-h * 0.6, -10), vx: rand(-60, 60), vy: rand(80, 220),
+        g: 140, drag: 0.995, rot: rand(0, 6.28), vr: rand(-6, 6), size: rand(10, 16),
+        color: PALETTE[i % PALETTE.length], life: rand(2.6, 3.6), fade: 0.6,
+      });
+    }
+    kick();
+  }
+
+  resize();
+  return { resize, burst, confetti };
+}
+return { createFx };
+})();
+// ---- art/logo.js ----
+const __m_art_logo_js = (() => {
+
+// 手绘笔画字标「狗了个狗」（viewBox 0 0 400 130）
+// 不依赖字体：每个字由圆头粗笔画 path 拼成，每个字占一个 100×100 的格子。
+// 每个笔画叠画三遍：深色外描边 26 → 白色描边 19 → 彩色芯 11。
+
+// 深色外描边
+const INK = '#3B2A1A';
+
+// 每个字的笔画（100×100 坐标，按书写笔顺）
+const STROKES = {
+  // 狗 = 犭（撇、弯钩、撇）+ 句（勹：撇、横折钩；口：竖、横折、横）
+  '狗': [
+    'M33 13Q28 21 18 27',
+    'M19 29Q34 38 33 57Q32 75 26 86L20 81',
+    'M32 50Q25 61 13 68',
+    'M55 12Q51 24 41 33',
+    'M51 24H84V80Q84 89 73 86',
+    'M52 42V67',
+    'M52 42H69V67',
+    'M52 67H69',
+  ],
+  // 了 = ㇇（横撇）+ 亅（竖钩）
+  '了': [
+    'M21 21H73L51 42',
+    'M51 42C54 57 54 70 53 79Q52 90 39 85',
+  ],
+  // 个 = 人（撇、捺）+ 丨（竖）
+  '个': [
+    'M50 14Q40 34 15 51',
+    'M50 14Q61 34 85 51',
+    'M50 39V88',
+  ],
+};
+
+// 四个字的颜色、旋转角和位置（上下略有错落）
+const CHARS = [
+  { ch: '狗', color: '#FF8A1F', rot: -6, x: 2, y: 16 },
+  { ch: '了', color: '#43A047', rot: 4, x: 100, y: 9 },
+  { ch: '个', color: '#29B6F6', rot: -3, x: 198, y: 17 },
+  { ch: '狗', color: '#F06292', rot: 6, x: 296, y: 10 },
+];
+
+// 字标 SVG
+function logoSVG() {
+  const body = CHARS.map(({ ch, color, rot, x, y }) => {
+    const paths = STROKES[ch].map((d) => `<path d="${d}"/>`).join('');
+    return `<g data-char="${ch}" transform="translate(${x} ${y}) rotate(${rot} 50 50)">`
+      + `<g stroke="${INK}" stroke-width="26">${paths}</g>`
+      + `<g stroke="#FFFFFF" stroke-width="19">${paths}</g>`
+      + `<g stroke="${color}" stroke-width="11">${paths}</g>`
+      + '</g>';
+  }).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="狗了个狗" viewBox="0 0 400 130" fill="none" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+}
+return { logoSVG };
+})();
+// ---- ui/share.js ----
+const __m_ui_share_js = (() => {
+const { logoSVG } = __m_art_logo_js;
+const { dogHeadSVG } = __m_art_dogs_js;
+const { iconSVG } = __m_art_icons_js;
+// 战绩图：Canvas 绘制 1080×1440 竖版海报；保存优先走 downloads 能力，普通网页再试系统分享，最后 <a download>
+
+
+
+
+const W = 1080;
+const H = 1440;
+const FONT = '"PingFang SC", "HarmonyOS Sans SC", "MiSans", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif';
+const INK = '#3B2A1A';
+
+function svgImage(svg) {
+  const src = svg.includes('xmlns=') ? svg : svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('SVG 图片加载失败'));
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(src)}`;
+  });
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+const fmtTime = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+
+async function renderShareCard(info) {
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const won = info.result === 'won';
+
+  ctx.fillStyle = '#A5D66F';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#98CE62';
+  for (let y = 60; y < H; y += 120) ctx.fillRect(0, y, W, 60);
+
+  const kinds = Array.from({ length: 6 }, (_, i) => (info.moves * 7 + i * 5) % 16);
+  const [logo, dog, ...icons] = await Promise.all([
+    svgImage(logoSVG()),
+    svgImage(dogHeadSVG(info.breedKey, won ? 'cheer' : 'sad')),
+    ...kinds.map((k) => svgImage(iconSVG(k, 128))),
+  ]);
+
+  ctx.drawImage(logo, 130, 40, 820, 267);
+
+  ctx.fillStyle = INK;
+  roundRect(ctx, 80, 344, 920, 880, 56);
+  ctx.fill();
+  ctx.fillStyle = '#FFFBF0';
+  roundRect(ctx, 80, 330, 920, 880, 56);
+  ctx.fill();
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = INK;
+  ctx.stroke();
+
+  ctx.drawImage(dog, W / 2 - 160, 346, 320, 320);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = won ? '#E8641A' : '#C62828';
+  ctx.font = `900 92px ${FONT}`;
+  ctx.fillText(won ? '通关成功！' : `还差 ${info.remaining} 张！`, W / 2, 770);
+  ctx.fillStyle = '#7A5A34';
+  ctx.font = `700 38px ${FONT}`;
+  ctx.fillText(`${info.mode === 'daily' ? '今日挑战' : '自由练习'} · ${info.levelName} · ${info.dateKey}`, W / 2, 836);
+
+  const stats = [['用时', fmtTime(info.seconds)], ['拿牌', `${info.moves} 次`], ['道具', `${info.propsUsed} 次`]];
+  stats.forEach(([label, value], i) => {
+    const x = 130 + i * 280;
+    const y = 884;
+    ctx.fillStyle = '#FFF1D6';
+    roundRect(ctx, x, y, 260, 168, 32);
+    ctx.fill();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    ctx.fillStyle = '#7A5A34';
+    ctx.font = `700 34px ${FONT}`;
+    ctx.fillText(label, x + 130, y + 58);
+    ctx.fillStyle = INK;
+    ctx.font = `900 54px ${FONT}`;
+    ctx.fillText(value, x + 130, y + 130);
+  });
+
+  ctx.fillStyle = INK;
+  ctx.font = `800 40px ${FONT}`;
+  const line = !info.teamName
+    ? '快来选个狗群，一起通关'
+    : won && info.key === 'daily2'
+      ? `我为${info.teamName}贡献了第 ${info.dogs} 只狗`
+      : info.streak > 0 ? `${info.teamName} · 连续打卡 ${info.streak} 天` : `${info.teamName} · 明天再来，汪！`;
+  ctx.fillText(line, W / 2, 1136);
+
+  icons.forEach((img, i) => ctx.drawImage(img, 88 + i * 154, 1244, 120, 120));
+
+  ctx.fillStyle = '#2F5D1E';
+  ctx.font = `800 36px ${FONT}`;
+  ctx.fillText('狗了个狗 · 每天一关，等你来挑战', W / 2, 1412);
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) throw new Error('战绩图导出失败');
+  return { blob, url: URL.createObjectURL(blob) };
+}
+
+async function saveCard(blob, platform) {
+  const filename = `狗了个狗战绩-${Date.now()}.png`;
+  if (platform.downloads) {
+    try {
+      await platform.downloads.save({ filename, data: blob });
+      return 'saved';
+    } catch (e) {
+      return e && e.code === 'declined' ? 'declined' : 'failed';
+    }
+  }
+  // Artifact 沙箱里 <a download> 与 Web Share 都不可用，只能让用户长按图片
+  if (platform.inClaude) return 'failed';
+  try {
+    const file = new File([blob], filename, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: '狗了个狗' });
+      return 'shared';
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return 'declined';
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  return 'downloaded';
+}
+return { renderShareCard, saveCard };
+})();
+// ---- ui/board.js ----
+const __m_ui_board_js = (() => {
+const { ICONS } = __m_art_icons_js;
+const { STACK_GAP } = __m_core_layout_js;
+const { BUFFER_COLS } = __m_core_game_js;
+// 牌面渲染：所有牌在覆盖整屏的 playfield 里，靠 transform 在场上 / 卡槽 / 移出区之间移动；按对局事件播放动画
+
+
+
+
+const ROW_H = 1.12;    // 盲盒堆与移出区那一行的高度（牌宽为单位）
+const BUF_GAP = 0.1;   // 移出区列间距
+const BUF_LIFT = 0.16; // 移出区叠放时每层上移
+const T_MIN = 24;
+const T_MAX = 64;
+
+function createBoard({ screen, stage, slotEl, playfield, onTap }) {
+  const reduce = !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const pos = new Map();
+  let game = null;
+  let els = [];
+  let visualSlot = [];
+  let T = 48;
+  let S = 44;
+  let bx = 0;
+  let by = 0;
+  let cells = [];
+  let hinted = -1;
+
+  const tf = (p) => `translate3d(${p.x}px, ${p.y}px, 0) scale(${p.s})`;
+
+  // 鼠标/触屏在 pointerdown 就响应（更跟手）；键盘回车/空格产生的 click（detail === 0）另行处理
+  playfield.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    const el = e.target.closest('.tile');
+    if (!el) return;
+    e.preventDefault();
+    onTap(Number(el.dataset.id));
+  });
+  playfield.addEventListener('click', (e) => {
+    if (e.detail !== 0) return;
+    const el = e.target.closest('.tile');
+    if (el) onTap(Number(el.dataset.id));
+  });
+
+  function measure() {
+    const L = game.level;
+    const sr = screen.getBoundingClientRect();
+    const st = stage.getBoundingClientRect();
+    const unitsH = L.rows + STACK_GAP + ROW_H;
+    const fit = Math.floor(Math.min(st.width / L.cols, st.height / unitsH));
+    T = Math.max(T_MIN, Math.min(T_MAX, fit));
+    bx = st.left - sr.left + (st.width - L.cols * T) / 2;
+    by = st.top - sr.top + Math.max(0, (st.height - unitsH * T) / 2);
+    playfield.style.setProperty('--t', `${T}px`);
+    slotEl.style.setProperty('--slot-w', `${Math.round(L.cols * T + 20)}px`);
+    cells = Array.from(slotEl.children, (c) => {
+      const r = c.getBoundingClientRect();
+      return { x: r.left - sr.left, y: r.top - sr.top, w: r.width };
+    });
+    S = cells.length ? cells[0].w : T;
+  }
+
+  const zOf = (t) => (t.group === 'main' ? 10 + t.z * 20 + Math.round(t.y * 2) : 10 + t.z);
+  function bufPos(col, h) {
+    const L = game.level;
+    const x0 = L.cols / 2 - (BUFFER_COLS + (BUFFER_COLS - 1) * BUF_GAP) / 2;
+    return { x: bx + (x0 + col * (1 + BUF_GAP)) * T, y: by + (L.rows + STACK_GAP - h * BUF_LIFT) * T, s: 1, z: 700 + h * 4 + col };
+  }
+  function slotAt(i) {
+    const c = cells[Math.max(0, Math.min(i, cells.length - 1))];
+    return { x: c.x, y: c.y, s: S / T, z: 900 + i };
+  }
+  function posOf(id) {
+    const st = game.state;
+    const t = st.tiles[id];
+    if (t.zone === 'slot') return slotAt(visualSlot.indexOf(id));
+    if (t.zone === 'buffer') return bufPos(t.col, st.buffer[t.col].indexOf(id));
+    return { x: bx + t.x * T, y: by + t.y * T, s: 1, z: zOf(t) };
+  }
+
+  function put(id, p) {
+    const el = els[id];
+    if (!el) return;
+    el.style.transform = tf(p);
+    el.style.zIndex = String(p.z);
+    pos.set(id, p);
+  }
+
+  // 移到新位置；lift > 0 时走抛物线（先抬高再落下）
+  function move(id, p, ms, lift = 0) {
+    const el = els[id];
+    if (!el) return Promise.resolve();
+    const from = pos.get(id);
+    for (const a of el.getAnimations()) a.finish();
+    put(id, p);
+    if (reduce || !from || !ms) return Promise.resolve();
+    const frames = lift
+      ? [{ transform: tf(from) }, { transform: tf({ x: (from.x + p.x) / 2, y: Math.min(from.y, p.y) - lift, s: Math.max(from.s, p.s) * 1.1 }), offset: 0.45 }, { transform: tf(p) }]
+      : [{ transform: tf(from) }, { transform: tf(p) }];
+    return el.animate(frames, { duration: ms, easing: 'cubic-bezier(.3,.7,.35,1)' }).finished.catch(() => {});
+  }
+
+  // 以牌中心为基准缩放（transform-origin 在左上角，需要补偿位移）
+  function around(p, k) {
+    const w = T * p.s;
+    const h = T * ROW_H * p.s;
+    return { x: p.x + (w - w * k) / 2, y: p.y + (h - h * k) / 2, s: p.s * k, z: p.z };
+  }
+
+  function pop(id) {
+    const el = els[id];
+    const p = pos.get(id);
+    if (!el || !p) return Promise.resolve();
+    const done = reduce
+      ? Promise.resolve()
+      : el.animate(
+        [{ transform: tf(p), opacity: 1 }, { transform: tf(around(p, 1.25)), opacity: 1, offset: 0.35 }, { transform: tf(around(p, 0.2)), opacity: 0 }],
+        { duration: 220, easing: 'ease-in', fill: 'forwards' },
+      ).finished.catch(() => {});
+    return done.then(() => { el.remove(); els[id] = null; pos.delete(id); });
+  }
+
+  function setIcon(id, kind) {
+    const use = els[id] && els[id].querySelector('use');
+    if (use) use.setAttribute('href', `#ic-${ICONS[kind].key}`);
+  }
+
+  async function flip(changes) {
+    const ids = game.state.tiles.filter((t) => t.zone === 'board' && els[t.id]).map((t) => t.id);
+    const squash = (p, k) => `${tf(p)} translate(${T / 2}px, 0) scaleX(${k}) translate(${-T / 2}px, 0)`;
+    if (!reduce) {
+      await Promise.all(ids.map((id) => els[id].animate(
+        [{ transform: tf(pos.get(id)) }, { transform: squash(pos.get(id), 0.05) }],
+        { duration: 150, easing: 'ease-in', fill: 'forwards' },
+      ).finished.catch(() => {})));
+    }
+    for (const c of changes) setIcon(c.id, c.kind);
+    if (!reduce) {
+      await Promise.all(ids.map((id) => {
+        const el = els[id];
+        for (const a of el.getAnimations()) a.cancel();
+        return el.animate([{ transform: squash(pos.get(id), 0.05) }, { transform: tf(pos.get(id)) }], { duration: 170, easing: 'ease-out' }).finished.catch(() => {});
+      }));
+    }
+  }
+
+  function refresh() {
+    if (!game) return;
+    for (const t of game.state.tiles) {
+      const el = els[t.id];
+      if (!el) continue;
+      const free = game.isFree(t.id);
+      const covered = !free && (t.zone === 'board' || t.zone === 'buffer');
+      el.classList.toggle('is-covered', covered);
+      el.classList.toggle('is-free', free);
+      el.classList.toggle('is-slot', t.zone === 'slot');
+      el.tabIndex = free ? 0 : -1;
+      el.setAttribute('aria-label', `${ICONS[t.kind].name}${covered ? '，被压住' : t.zone === 'slot' ? '，在卡槽中' : ''}`);
+    }
+  }
+
+  function mount(g) {
+    game = g;
+    const st = g.state;
+    playfield.textContent = '';
+    els = [];
+    pos.clear();
+    hinted = -1;
+    visualSlot = st.slot.slice();
+    measure();
+    const frag = document.createDocumentFragment();
+    for (const t of st.tiles) {
+      if (t.zone === 'gone') continue;
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'tile';
+      el.dataset.id = String(t.id);
+      el.innerHTML = `<span class="tile-face"><svg aria-hidden="true" focusable="false"><use href="#ic-${ICONS[t.kind].key}"></use></svg></span>`;
+      els[t.id] = el;
+      frag.appendChild(el);
+    }
+    playfield.appendChild(frag);
+    for (const t of st.tiles) if (els[t.id]) put(t.id, posOf(t.id));
+    refresh();
+    if (reduce) return;
+    for (const t of st.tiles) {
+      const el = els[t.id];
+      if (!el || t.zone !== 'board') continue;
+      const p = pos.get(t.id);
+      el.animate(
+        [{ transform: tf({ ...p, y: p.y - T * 1.6 }), opacity: 0 }, { transform: tf(p), opacity: 1 }],
+        { duration: 360, delay: Math.min(620, t.z * 32 + (t.id % 9) * 10), easing: 'cubic-bezier(.2,.9,.3,1.15)', fill: 'backwards' },
+      );
+    }
+  }
+
+  async function play(events, hooks = {}) {
+    for (const ev of events) {
+      if (ev.type === 'pick') {
+        visualSlot.splice(ev.slotIndex, 0, ev.id);
+        const el = els[ev.id];
+        el.classList.add('is-flying');
+        refresh();
+        const jobs = [move(ev.id, slotAt(ev.slotIndex), 200, T * 0.9)];
+        visualSlot.forEach((id, i) => { if (id !== ev.id) jobs.push(move(id, slotAt(i), 150)); });
+        await Promise.all(jobs);
+        el.classList.remove('is-flying');
+        hooks.onLand?.(ev);
+      } else if (ev.type === 'eliminate') {
+        const cs = ev.ids.map(center);
+        hooks.onEliminate?.(ev, { x: cs.reduce((a, c) => a + c.x, 0) / cs.length, y: cs.reduce((a, c) => a + c.y, 0) / cs.length });
+        await Promise.all(ev.ids.map(pop));
+        visualSlot = visualSlot.filter((id) => !ev.ids.includes(id));
+        await Promise.all(visualSlot.map((id, i) => move(id, slotAt(i), 150)));
+      } else if (ev.type === 'moveOut') {
+        const moved = new Set(ev.moves.map((m) => m.id));
+        visualSlot = visualSlot.filter((id) => !moved.has(id));
+        refresh();
+        await Promise.all([
+          ...ev.moves.map((m) => move(m.id, bufPos(m.col, m.height), 280, T * 0.7)),
+          ...visualSlot.map((id, i) => move(id, slotAt(i), 180)),
+        ]);
+      } else if (ev.type === 'undo') {
+        visualSlot = visualSlot.filter((id) => id !== ev.id);
+        refresh();
+        await Promise.all([move(ev.id, posOf(ev.id), 260, T * 0.8), ...visualSlot.map((id, i) => move(id, slotAt(i), 160))]);
+      } else if (ev.type === 'shuffle') {
+        await flip(ev.changes);
+      }
+    }
+    refresh();
+  }
+
+  function center(id) {
+    const p = pos.get(id);
+    return p ? { x: p.x + (T * p.s) / 2, y: p.y + (T * ROW_H * p.s) / 2 } : { x: 0, y: 0 };
+  }
+
+  function deny(id) {
+    const el = els[id];
+    const p = pos.get(id);
+    if (!el || !p || reduce) return;
+    el.animate([{ transform: tf(p) }, { transform: tf({ ...p, x: p.x - 5 }) }, { transform: tf({ ...p, x: p.x + 5 }) }, { transform: tf(p) }], { duration: 200 });
+  }
+
+  function hint(id) {
+    clearHint();
+    if (els[id]) { els[id].classList.add('is-hint'); hinted = id; }
+  }
+  function clearHint() {
+    if (hinted >= 0 && els[hinted]) els[hinted].classList.remove('is-hint');
+    hinted = -1;
+  }
+
+  function resize() {
+    if (!game) return;
+    measure();
+    for (const t of game.state.tiles) if (els[t.id]) put(t.id, posOf(t.id));
+  }
+
+  function clear() {
+    playfield.textContent = '';
+    els = [];
+    pos.clear();
+    visualSlot = [];
+    game = null;
+    hinted = -1;
+  }
+
+  return { mount, clear, resize, refresh, play, deny, hint, clearHint, center };
+}
+return { createBoard };
+})();
+// ---- ui/screens.js ----
+const __m_ui_screens_js = (() => {
+const { BREEDS, dogHeadSVG } = __m_art_dogs_js;
+const { logoSVG } = __m_art_logo_js;
+const { iconSVG } = __m_art_icons_js;
+// 界面层：首页、HUD、弹层、吉祥物与气泡、提示条；只负责渲染与收集点击，流程由 main.js 编排
+
+
+
+
+const $ = (id) => document.getElementById(id);
+const fmtTime = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+
+function createScreens() {
+  const layer = $('modal-layer');
+  const modal = $('modal');
+  const bubble = $('bubble');
+  const face = $('mascot-face');
+  let breed = 'shiba';
+  let baseMood = 'idle';
+  let shown = '';
+  let moodTimer = 0;
+  let bubbleTimer = 0;
+  let lastFocus = null;
+
+  $('logo').insertAdjacentHTML('beforeend', logoSVG().replace('<svg', '<svg aria-hidden="true"'));
+
+  // ---- 吉祥物 ----
+  function paint(m) {
+    if (m === shown) return;
+    shown = m;
+    face.innerHTML = dogHeadSVG(breed, m);
+  }
+  function setBaseMood(m) { baseMood = m; clearTimeout(moodTimer); paint(m); }
+  function flashMood(m, ms = 800) {
+    clearTimeout(moodTimer);
+    paint(m);
+    moodTimer = setTimeout(() => paint(baseMood), ms);
+  }
+  function setBreed(key) {
+    breed = key || 'shiba';
+    shown = '';
+    paint(baseMood);
+    $('hero-dog').innerHTML = dogHeadSVG(breed, 'happy');
+  }
+  function say(text, ms = 1800) {
+    bubble.textContent = text;
+    bubble.hidden = false;
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(() => { bubble.hidden = true; }, ms);
+  }
+  function hush() { clearTimeout(bubbleTimer); bubble.hidden = true; }
+
+  // ---- 页面与 HUD ----
+  function show(name) {
+    $('home').hidden = name !== 'home';
+    $('game').hidden = name !== 'game';
+  }
+  function home({ dailySub, teamName, streak, online }) {
+    $('daily-sub').textContent = dailySub;
+    const chip = $('team-chip');
+    chip.innerHTML = dogHeadSVG(breed, 'idle');
+    const name = document.createElement('span');
+    name.textContent = teamName;
+    chip.appendChild(name);
+    $('streak').textContent = streak > 0 ? `连续打卡 ${streak} 天` : '';
+    const box = $('online');
+    box.hidden = !(online && online.total > 0);
+    if (!box.hidden) $('online-count').textContent = String(online.total);
+  }
+  function hud({ name, left, props, can }) {
+    $('level-name').textContent = name;
+    $('tiles-left').textContent = String(left);
+    for (const k of ['moveOut', 'undo', 'shuffle']) {
+      const btn = $(`prop-${k}`);
+      $(`badge-${k}`).textContent = String(props[k]);
+      btn.classList.toggle('is-empty', props[k] <= 0);
+      btn.classList.toggle('is-idle', props[k] > 0 && !can[k]);
+      btn.setAttribute('aria-label', `${btn.querySelector('.prop-name').textContent}，剩 ${props[k]} 次`);
+    }
+  }
+  const restart = (el, cls) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
+  function denyProp(k) { restart($(`prop-${k}`), 'is-deny'); }
+  function slotDanger(on) { $('slot').classList.toggle('is-danger', on); }
+  function shakeSlot() { restart($('slot'), 'is-shake'); }
+
+  function toast(text) {
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = text;
+    $('toasts').appendChild(t);
+    setTimeout(() => t.remove(), 2700);
+  }
+  function combo(text, x, y) {
+    const c = document.createElement('div');
+    c.className = 'combo';
+    c.textContent = text;
+    c.style.left = `${x}px`;
+    c.style.top = `${y}px`;
+    $('app').appendChild(c);
+    setTimeout(() => c.remove(), 1000);
+  }
+
+  // ---- 弹层 ----
+  function open({ title, body = '', actions = [], dismissible = true, onDismiss = null }) {
+    lastFocus = document.activeElement;
+    modal.textContent = '';
+    const h = document.createElement('h2');
+    h.className = 'modal-title';
+    h.id = 'modal-title';
+    h.textContent = title;
+    const b = document.createElement('div');
+    b.className = 'modal-body';
+    if (typeof body === 'string') b.innerHTML = body;
+    else if (body) b.appendChild(body);
+    const acts = document.createElement('div');
+    acts.className = 'modal-actions';
+    const buttons = {};
+    for (const a of actions) {
+      if (a.hidden) continue;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `btn ${a.go ? 'btn-go' : 'btn-soft'}`;
+      btn.textContent = a.label;
+      btn.addEventListener('click', () => a.onClick(btn));
+      acts.appendChild(btn);
+      if (a.key) buttons[a.key] = btn;
+    }
+    modal.append(h, b);
+    if (acts.children.length) modal.appendChild(acts);
+    layer.hidden = false;
+    const dismiss = () => { close(); onDismiss?.(); };
+    layer.onclick = dismissible ? (e) => { if (e.target === layer) dismiss(); } : null;
+    layer.onkeydown = dismissible ? (e) => { if (e.key === 'Escape') dismiss(); } : null;
+    modal.focus();
+    return { body: b, buttons };
+  }
+  function close() {
+    if (layer.hidden) return;
+    layer.hidden = true;
+    modal.textContent = '';
+    layer.onclick = null;
+    layer.onkeydown = null;
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  const isOpen = () => !layer.hidden;
+
+  function switches(settings, onToggle) {
+    const wrap = document.createElement('div');
+    wrap.className = 'switches';
+    for (const [key, label] of [['music', '背景音乐'], ['sfx', '音效'], ['vibrate', '震动']]) {
+      const row = document.createElement('div');
+      row.className = 'switch-row';
+      const span = document.createElement('span');
+      span.id = `sw-label-${key}`;
+      span.textContent = label;
+      const sw = document.createElement('button');
+      sw.type = 'button';
+      sw.className = 'switch';
+      sw.id = `sw-${key}`;
+      sw.setAttribute('aria-labelledby', span.id);
+      sw.setAttribute('aria-pressed', String(!!settings[key]));
+      sw.addEventListener('click', () => {
+        const v = sw.getAttribute('aria-pressed') !== 'true';
+        sw.setAttribute('aria-pressed', String(v));
+        onToggle(key, v);
+      });
+      row.append(span, sw);
+      wrap.appendChild(row);
+    }
+    return wrap;
+  }
+
+  function settings(s, onToggle) {
+    open({ title: '设置', body: switches(s, onToggle), actions: [{ label: '好的', go: true, onClick: close }] });
+  }
+
+  function help() {
+    const rules = [
+      [0, '点一张亮着的牌，它会飞进下方的 7 格卡槽。'],
+      [3, '卡槽里凑齐 3 张相同的，就会消除。'],
+      [4, '卡槽塞满 7 张就输了；变暗的牌被压住，暂时点不了。'],
+      [1, '道具每关各 1 次：移出、撤回、洗牌；输了还能复活 1 次。'],
+      [13, '今日挑战每天一关，大家玩的都是同一关：第 1 关热身，第 2 关才是真正的考验。'],
+    ];
+    const body = `<ul class="rules">${rules.map(([k, t]) => `<li>${iconSVG(k, 30)}<span>${t}</span></li>`).join('')}</ul>`;
+    open({ title: '怎么玩', body, actions: [{ label: '明白了，汪！', go: true, onClick: close }] });
+  }
+
+  function practice(levels, onPick) {
+    const list = document.createElement('div');
+    list.className = 'choice-list';
+    const items = [['easy', '轻松消遣，适合练手'], ['normal', '要动点脑子'], ['hard', '和第 2 关差不多难'], ['hell', '不保证有解，致敬原版']];
+    for (const [key, desc] of items) {
+      const L = levels[key];
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'choice';
+      b.innerHTML = `<b>${L.name}</b><small>${L.kinds} 种图案 · ${L.kinds * L.perKind} 张 · ${desc}</small>`;
+      b.addEventListener('click', () => onPick(key));
+      list.appendChild(b);
+    }
+    open({ title: '自由练习', body: list, actions: [{ label: '返回', onClick: close }] });
+  }
+
+  function pack({ selected, peers, stats, first }, onPick) {
+    const box = document.createElement('div');
+    const grid = document.createElement('div');
+    grid.className = 'team-grid';
+    for (const b of BREEDS) {
+      const on = b.key === selected;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `team${on ? ' is-on' : ''}`;
+      btn.setAttribute('aria-pressed', String(on));
+      const n = peers && peers.teams[b.key];
+      btn.innerHTML = `${dogHeadSVG(b.key, on ? 'happy' : 'idle')}<b>${b.team}</b><small>${n ? `在线 ${n}` : '&nbsp;'}</small>`;
+      btn.addEventListener('click', () => onPick(b.key));
+      grid.appendChild(btn);
+    }
+    box.appendChild(grid);
+    if (!first) {
+      const p = document.createElement('p');
+      p.className = 'pack-stats';
+      p.textContent = `今日挑战通关 ${stats.dailyWins} 次 · 连续打卡 ${stats.streak} 天 · 为狗群贡献 ${stats.dogs} 只狗`;
+      box.appendChild(p);
+    }
+    open({
+      title: first ? '选一个狗群加入' : '我的狗群',
+      body: box,
+      dismissible: !first,
+      actions: first ? [] : [{ label: '好的', go: true, onClick: close }],
+    });
+  }
+
+  function pause(h) {
+    open({
+      title: '暂停一下',
+      body: switches(h.settings, h.onToggle),
+      onDismiss: h.onResume,
+      actions: [
+        { label: '继续游戏', go: true, onClick: () => { close(); h.onResume(); } },
+        { label: '重开本关', onClick: () => { close(); h.onRestart(); } },
+        { label: '回到首页', onClick: () => { close(); h.onHome(); } },
+      ],
+    });
+  }
+
+  function intro2(L, onStart) {
+    open({
+      title: '热身结束！',
+      dismissible: false,
+      body: `<div class="modal-dog">${dogHeadSVG(breed, 'shock')}</div><p class="intro-big">第 2 关</p><p>${L.kinds} 种图案、${L.kinds * L.perKind} 张牌、${L.layers} 层叠叠乐，两侧还有盲盒牌堆。道具各 1 次，复活 1 次，祝你好运，汪！</p>`,
+      actions: [{ label: '开始第 2 关', go: true, onClick: () => { close(); onStart(); } }],
+    });
+  }
+
+  function result(info, h) {
+    const won = info.result === 'won';
+    const body = document.createElement('div');
+    body.innerHTML = `
+      <div class="modal-dog">${dogHeadSVG(breed, won ? 'cheer' : 'sad')}</div>
+      <div class="stats">
+        <div class="stat"><small>用时</small><b>${fmtTime(info.seconds)}</b></div>
+        <div class="stat"><small>${won ? '拿牌' : '剩余'}</small><b>${won ? `${info.moves} 次` : `${info.remaining} 张`}</b></div>
+        <div class="stat"><small>道具</small><b>${info.propsUsed} 次</b></div>
+      </div>
+      <div class="card-wrap" id="card-wrap">战绩图生成中…</div>
+      <p class="card-tip" id="card-tip" hidden>手机上可以长按图片保存</p>
+      <div class="roast" id="roast" hidden></div>`;
+    const title = won ? (info.key === 'daily2' ? '今日挑战通关！' : '通关成功！') : '卡槽满啦！';
+    const actions = won
+      ? [
+        { key: 'next', label: h.nextLabel, go: true, onClick: h.onNext },
+        { key: 'save', label: '保存战绩图', onClick: h.onSave, hidden: !h.canSave },
+        { key: 'roast', label: 'AI 狗评', onClick: h.onRoast, hidden: !h.canRoast },
+        { key: 'home', label: '回到首页', onClick: h.onHome },
+      ]
+      : [
+        { key: 'revive', label: '复活一次（移出 3 张）', go: true, onClick: h.onRevive, hidden: !info.canRevive },
+        { key: 'retry', label: '重新开始', go: !info.canRevive, onClick: h.onRetry },
+        { key: 'save', label: '保存战绩图', onClick: h.onSave, hidden: !h.canSave },
+        { key: 'roast', label: 'AI 狗评', onClick: h.onRoast, hidden: !h.canRoast },
+        { key: 'home', label: '回到首页', onClick: h.onHome },
+      ];
+    return open({ title, body, actions, dismissible: false });
+  }
+  function setCard(url) {
+    const wrap = $('card-wrap');
+    if (!wrap) return;
+    wrap.textContent = '';
+    const img = new Image();
+    img.alt = '本局战绩图';
+    img.src = url;
+    wrap.appendChild(img);
+    const tip = $('card-tip');
+    if (tip) tip.hidden = false;
+  }
+  function cardFailed() {
+    const wrap = $('card-wrap');
+    if (wrap) wrap.textContent = '战绩图生成失败';
+  }
+  function roastText(text) {
+    const r = $('roast');
+    if (!r) return;
+    r.hidden = !text;
+    r.textContent = text;
+  }
+
+  return {
+    show, home, hud, denyProp, slotDanger, shakeSlot,
+    setBreed, setBaseMood, flashMood, say, hush, toast, combo,
+    open, close, isOpen, settings, help, practice, pack, pause, intro2, result, setCard, cardFailed, roastText,
+  };
+}
+return { createScreens };
+})();
+// ---- ui/main.js ----
+const __m_ui_main_js = (() => {
+const { LEVELS, generateLevel } = __m_core_generator_js;
+const { createGame } = __m_core_game_js;
+const { bestMove } = __m_core_bot_js;
+const { ICONS, iconSymbolsSVG } = __m_art_icons_js;
+const { BREEDS } = __m_art_dogs_js;
+const { createAudio } = __m_audio_audio_js;
+const { createStore, dateKey } = __m_ui_storage_js;
+const { initPlatform, setPresence, broadcastWin, aiRoast, hotBoot, hotSnapshot } = __m_ui_platform_js;
+const { createFx } = __m_ui_fx_js;
+const { renderShareCard, saveCard } = __m_ui_share_js;
+const { createBoard } = __m_ui_board_js;
+const { createScreens } = __m_ui_screens_js;
+// 启动与流程编排：存档、音频、平台能力、对局生命周期、结算、调试接口与热更新续玩
+
+
+
+
+
+
+
+
+
+
+
+
+
+const COMBO_TEXT = ['', '', '汪汪！', '汪汪汪！', '狗王驾到！'];
+const TEAM = Object.fromEntries(BREEDS.map((b) => [b.key, b]));
+const $ = (id) => document.getElementById(id);
+
+function localStorageOrNull() {
+  try { return globalThis.localStorage || null; } catch { return null; }
+}
+
+function boot(hot) {
+  const store = createStore(localStorageOrNull());
+  const save = store.data;
+  const today = dateKey();
+  const params = new URLSearchParams(globalThis.location ? globalThis.location.search : '');
+  const audio = createAudio();
+  audio.setMusic(save.settings.music);
+  audio.setSfx(save.settings.sfx);
+  document.body.insertAdjacentHTML('afterbegin', iconSymbolsSVG());
+  const ui = createScreens();
+  ui.setBreed(save.team || 'shiba');
+  const fx = createFx($('fx'));
+  let peers = null;
+  let s = null;
+  let card = null;
+  let roastCtl = null;
+
+  const platform = initPlatform({
+    onPeers: (p) => { peers = p; renderHome(); },
+    onWinBroadcast: (team, fromMe) => { if (!fromMe) ui.toast(`一位${team ? TEAM[team].team : ''}狗友刚刚通关了今日第 2 关！`); },
+    onChange: () => { renderHome(); syncPresence(); },
+  });
+  const board = createBoard({ screen: $('game'), stage: $('stage'), slotEl: $('slot'), playfield: $('playfield'), onTap: tap });
+
+  const vibrate = (pattern) => {
+    if (!save.settings.vibrate || !navigator.vibrate) return;
+    try { navigator.vibrate(pattern); } catch { /* 不支持震动 */ }
+  };
+  const playing = () => !!s && s.game.state.status === 'playing';
+  const elapsed = () => (s ? s.elapsed + (s.running ? performance.now() - s.since : 0) : 0);
+  const pauseClock = () => { if (s && s.running) { s.elapsed += performance.now() - s.since; s.running = false; } };
+  const resumeClock = () => { if (s && !s.running && playing()) { s.since = performance.now(); s.running = true; } };
+  const newPracticeSeed = () => params.get('seed') || `p-${Date.now().toString(36)}`;
+
+  // 每次用户手势都尝试解锁音频并按设置开始背景音乐（两者都幂等）；iOS 只认 touchend/click 这类手势，所以多监听几种
+  const unlock = () => {
+    audio.unlock();
+    if (save.settings.music) audio.startMusic();
+  };
+  for (const type of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) addEventListener(type, unlock, { capture: true, passive: true });
+
+  function syncPresence() {
+    setPresence(platform, { team: save.team, screen: s ? 'game' : 'home', level: s ? s.key : null });
+  }
+
+  function renderHome() {
+    const d = store.peekDay(today);
+    ui.home({
+      dailySub: d.l2 ? '今日已通关 ✓ 再挑战一次' : d.l1 ? '第 2 关 · 真正的考验' : '第 1 关 · 热身',
+      teamName: save.team ? TEAM[save.team].team : '还没加入狗群',
+      streak: store.currentStreak(today),
+      online: peers,
+    });
+  }
+
+  function goHome() {
+    pauseClock();
+    s = null;
+    board.clear();
+    audio.setTension(0);
+    ui.slotDanger(false);
+    ui.hush();
+    ui.setBaseMood('idle');
+    ui.show('home');
+    renderHome();
+    syncPresence();
+  }
+
+  function updateHud() {
+    const g = s.game;
+    const st = g.state;
+    ui.hud({
+      name: s.mode === 'practice' ? `练习 · ${g.level.name}` : g.level.name,
+      left: st.remaining,
+      props: st.props,
+      can: { moveOut: g.canMoveOut(), undo: g.canUndo(), shuffle: g.canShuffle() },
+    });
+  }
+
+  function startLevel(key, seedStr, mode, actions = null) {
+    const level = generateLevel(key, seedStr);
+    const game = createGame(level);
+    if (actions && !game.replay(actions)) console.warn('续玩回放中途失败，保留已回放的部分');
+    s = { game, key, seedStr, mode, elapsed: 0, since: performance.now(), running: true, busy: false, queue: [], warned: false };
+    ui.close();
+    ui.show('game');
+    board.mount(game);
+    fx.resize();
+    ui.setBaseMood('idle');
+    ui.slotDanger(false);
+    audio.setTension(0);
+    updateHud();
+    store.recordPlay();
+    syncPresence();
+    if (key === 'daily1' && !actions) {
+      board.hint(level.solution[0]);
+      ui.say('点亮着的牌，凑齐 3 张就能消除！', 3200);
+    } else {
+      ui.say(key === 'daily2' ? '第 2 关来了，稳住别慌！' : '开干，汪！', 2000);
+    }
+  }
+
+  function tap(id) {
+    if (!playing() || ui.isOpen()) return;
+    if (s.busy) {
+      if (s.queue.length < 3) s.queue.push(id);
+      return;
+    }
+    pick(id);
+  }
+
+  function pick(id) {
+    const g = s.game;
+    const t = g.state.tiles[id];
+    const events = g.pick(id);
+    if (!events) {
+      if (t && (t.zone === 'board' || t.zone === 'buffer')) {
+        board.deny(id);
+        audio.play('deny');
+        ui.flashMood('shock', 700);
+        ui.say('这张被压住啦，先拿上面的', 1300);
+      }
+      return;
+    }
+    board.clearHint();
+    audio.play('tap');
+    vibrate(8);
+    run(events);
+  }
+
+  async function run(events) {
+    const cur = s;
+    cur.busy = true;
+    await board.play(events, {
+      onLand: () => audio.play('place'),
+      onEliminate: (ev, c) => {
+        audio.play('match', { combo: ev.combo });
+        if (ev.combo >= 2) audio.play('woof', { variant: ev.combo >= 3 ? 1 : 0 });
+        vibrate([15, 30, 15]);
+        fx.burst(c.x, c.y, ICONS[ev.kind].color);
+        if (ev.combo >= 2) ui.combo(COMBO_TEXT[Math.min(ev.combo, 4)], c.x, c.y - 24);
+        ui.flashMood('happy', 900);
+      },
+    });
+    if (s !== cur) return;
+    cur.busy = false;
+    afterAction(events);
+    while (s === cur && playing() && !cur.busy && cur.queue.length && !ui.isOpen()) pick(cur.queue.shift());
+  }
+
+  function afterAction(events) {
+    const st = s.game.state;
+    updateHud();
+    const n = st.slot.length;
+    audio.setTension(n >= 6 ? 1 : n === 5 ? 0.5 : 0);
+    ui.slotDanger(n >= 5 && st.status === 'playing');
+    if (st.status === 'playing') {
+      if (n >= 5 && !s.warned) {
+        s.warned = true;
+        audio.play('warn');
+        ui.setBaseMood('worried');
+        ui.say(n >= 6 ? '只剩 1 格了！' : '卡槽快满了，稳住！', 1600);
+      } else if (n < 5 && s.warned) {
+        s.warned = false;
+        ui.setBaseMood('idle');
+      }
+    }
+    if (events.some((e) => e.type === 'win')) onWin();
+    else if (events.some((e) => e.type === 'lose')) onLose();
+  }
+
+  function useProp(name) {
+    if (!playing() || s.busy || ui.isOpen()) return;
+    const g = s.game;
+    const events = name === 'moveOut' ? g.moveOut() : name === 'undo' ? g.undo() : g.shuffle();
+    if (!events) {
+      ui.denyProp(name);
+      audio.play('deny');
+      const st = g.state;
+      const why = st.props[name] <= 0 ? '这个道具用完啦'
+        : name === 'undo' ? (st.slot.length ? '刚消除完，撤回不了哦' : '卡槽是空的，没得撤回')
+          : name === 'moveOut' ? '卡槽是空的，不用移出' : '场上没有牌可洗了';
+      ui.say(why, 1500);
+      return;
+    }
+    audio.play(name);
+    board.clearHint();
+    ui.say(name === 'moveOut' ? '挪出去 3 张，喘口气' : name === 'undo' ? '刚才那步不算！' : '重新洗牌，汪！', 1400);
+    run(events);
+  }
+
+  function summary(result) {
+    const st = s.game.state;
+    const u = st.used;
+    return {
+      result, key: s.key, mode: s.mode, levelName: s.game.level.name, dateKey: today,
+      seconds: Math.round(elapsed() / 1000), moves: st.moves, remaining: st.remaining,
+      used: u, propsUsed: u.moveOut + u.undo + u.shuffle + u.revive,
+      breedKey: save.team || 'shiba', teamName: save.team ? TEAM[save.team].team : '',
+      streak: store.currentStreak(today), dogs: save.stats.dogsContributed, canRevive: s.game.canRevive(),
+    };
+  }
+
+  function onWin() {
+    pauseClock();
+    const cur = s;
+    store.recordWin({ daily: cur.mode === 'daily', level: cur.key, key: today });
+    audio.setTension(0);
+    audio.play('win');
+    vibrate([20, 40, 20, 40, 60]);
+    fx.confetti();
+    ui.setBaseMood('cheer');
+    ui.slotDanger(false);
+    if (cur.mode === 'daily' && cur.key === 'daily1') {
+      setTimeout(() => { if (s === cur) ui.intro2(LEVELS.daily2, () => startLevel('daily2', `dog-${today}`, 'daily')); }, 700);
+      return;
+    }
+    if (cur.mode === 'daily' && cur.key === 'daily2') broadcastWin(platform, save.team);
+    setTimeout(() => { if (s === cur) showResult(summary('won')); }, 800);
+  }
+
+  function onLose() {
+    pauseClock();
+    const cur = s;
+    audio.setTension(0);
+    audio.play('lose');
+    vibrate([80, 50, 120]);
+    ui.setBaseMood('sad');
+    ui.shakeSlot();
+    if (cur.mode === 'daily') store.recordLoss(today, cur.game.state.remaining);
+    setTimeout(() => { if (s === cur) showResult(summary('lost')); }, 700);
+  }
+
+  function showResult(info) {
+    const cur = s;
+    card = null;
+    const daily2Won = info.result === 'won' && info.key === 'daily2';
+    ui.result(info, {
+      canSave: !platform.inClaude || !!platform.downloads,
+      canRoast: !!platform.sample,
+      nextLabel: cur.mode === 'practice' ? '再来一局' : daily2Won ? '再挑战一次' : '下一关',
+      onNext: () => startLevel(cur.key, cur.mode === 'practice' ? newPracticeSeed() : cur.seedStr, cur.mode),
+      onRetry: () => startLevel(cur.key, cur.seedStr, cur.mode),
+      onRevive: () => {
+        const events = cur.game.revive();
+        if (!events) return;
+        ui.close();
+        audio.play('revive');
+        ui.setBaseMood('idle');
+        cur.warned = false;
+        ui.say('复活成功，再来！', 1500);
+        resumeClock();
+        run(events);
+      },
+      onHome: () => { ui.close(); goHome(); },
+      onSave: async (btn) => {
+        if (!card) { ui.toast('战绩图还在生成，稍等一下'); return; }
+        btn.disabled = true;
+        const r = await saveCard(card.blob, platform);
+        btn.disabled = false;
+        const tips = { saved: '战绩图已保存', downloaded: '战绩图已下载', shared: '已打开分享', declined: '已取消保存' };
+        ui.toast(tips[r] || '保存失败，可以长按图片保存');
+      },
+      onRoast: async (btn) => {
+        btn.disabled = true;
+        ui.roastText('狗子正在酝酿毒舌……');
+        if (roastCtl) roastCtl.abort();
+        roastCtl = new AbortController();
+        try {
+          await aiRoast(platform, info, (text) => ui.roastText(text), roastCtl.signal);
+        } catch (e) {
+          const code = e && e.code;
+          if (code === 'not_granted' || code === 'sampling_disabled') {
+            ui.roastText('狗子这次不想说话（没有获得 AI 授权）');
+            btn.hidden = true;
+            return;
+          }
+          ui.roastText(code === 'rate_limited' ? '狗子说累了，过一会儿再来' : code === 'cancelled' ? '' : '狗子走神了，再点一次试试');
+        }
+        btn.disabled = false;
+      },
+    });
+    renderShareCard(info).then((c) => { card = c; ui.setCard(c.url); }).catch(() => ui.cardFailed());
+  }
+
+  function pause() {
+    if (!s || ui.isOpen()) return;
+    pauseClock();
+    ui.pause({
+      settings: save.settings,
+      onToggle: toggleSetting,
+      onResume: () => resumeClock(),
+      onRestart: () => startLevel(s.key, s.seedStr, s.mode),
+      onHome: () => goHome(),
+    });
+  }
+
+  function toggleSetting(name, value) {
+    store.setSetting(name, value);
+    if (name === 'music') {
+      audio.setMusic(value);
+      if (value) audio.startMusic(); else audio.stopMusic();
+    }
+    if (name === 'sfx') audio.setSfx(value);
+    if (name === 'vibrate' && value) vibrate(20);
+  }
+
+  function openPack(first) {
+    ui.pack({
+      selected: save.team,
+      peers,
+      first,
+      stats: { dailyWins: save.stats.dailyWins, streak: store.currentStreak(today), dogs: save.stats.dogsContributed },
+    }, (key) => {
+      store.setTeam(key);
+      ui.setBreed(key);
+      audio.play('woof', { variant: key === 'husky' || key === 'golden' ? 2 : key === 'teddy' || key === 'corgi' ? 1 : 0 });
+      renderHome();
+      syncPresence();
+      if (first) {
+        ui.close();
+        ui.toast(`欢迎加入${TEAM[key].team}！`);
+      } else {
+        openPack(false);
+      }
+    });
+  }
+
+  $('btn-daily').addEventListener('click', () => {
+    audio.play('button');
+    startLevel(store.peekDay(today).l1 ? 'daily2' : 'daily1', `dog-${today}`, 'daily');
+  });
+  $('btn-practice').addEventListener('click', () => {
+    audio.play('button');
+    ui.practice(LEVELS, (key) => startLevel(key, newPracticeSeed(), 'practice'));
+  });
+  $('btn-pack').addEventListener('click', () => { audio.play('button'); openPack(false); });
+  $('btn-settings').addEventListener('click', () => { audio.play('button'); ui.settings(save.settings, toggleSetting); });
+  $('btn-help').addEventListener('click', () => { audio.play('button'); ui.help(); });
+  $('btn-pause').addEventListener('click', () => { audio.play('button'); pause(); });
+  for (const name of ['moveOut', 'undo', 'shuffle']) $(`prop-${name}`).addEventListener('click', () => useProp(name));
+  addEventListener('resize', () => { fx.resize(); board.resize(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && playing() && !ui.isOpen()) pause(); });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && playing() && !ui.isOpen()) pause(); });
+
+  if (params.has('debug') || (globalThis.location && globalThis.location.hash === '#debug')) {
+    const dbg = {
+      state: () => (s ? s.game.state : null),
+      actions: () => (s ? s.game.actions : []),
+      solution: () => (s ? s.game.level.solution : null),
+      level: (key = 'daily1', seed = `dog-${today}`) => startLevel(key, seed, key.startsWith('daily') ? 'daily' : 'practice'),
+      step() {
+        if (!playing() || ui.isOpen()) return false;
+        const g = s.game;
+        const acts = g.actions;
+        const sol = g.level.solution;
+        const onPath = !!sol && acts.every((a, i) => a[0] === 'p' && a[1] === sol[i]);
+        const id = onPath && acts.length < sol.length ? sol[acts.length] : bestMove(g).id;
+        if (id >= 0) tap(id);
+        return true;
+      },
+      autoplay(ms = 150) {
+        const iv = setInterval(() => { if (!dbg.step()) clearInterval(iv); }, ms);
+        return iv;
+      },
+      save: () => save,
+      platform: () => platform,
+      audio: () => audio,
+    };
+    globalThis.__dog = dbg;
+  }
+
+  hotSnapshot(() => (s ? { screen: 'game', key: s.key, seedStr: s.seedStr, mode: s.mode, actions: s.game.actions } : { screen: 'home' }));
+  renderHome();
+  syncPresence();
+  if (hot && hot.screen === 'game' && LEVELS[hot.key] && typeof hot.seedStr === 'string') {
+    startLevel(hot.key, hot.seedStr, hot.mode === 'practice' ? 'practice' : 'daily', Array.isArray(hot.actions) ? hot.actions : null);
+  } else if (!save.team) {
+    setTimeout(() => openPack(true), 300);
+  }
+}
+
+hotBoot(boot);
+return {  };
+})();
+
+})();</script>
+</body>
+</html>
