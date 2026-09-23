@@ -18,7 +18,8 @@ export function createScreens() {
   let bubbleTimer = 0;
   let lastFocus = null;
 
-  $('logo').insertAdjacentHTML('beforeend', logoSVG().replace('<svg', '<svg aria-hidden="true"'));
+  $('logo').insertAdjacentHTML('beforeend', logoSVG());
+  $('logo').lastElementChild.setAttribute('aria-hidden', 'true'); // 标题文字已由 sr-only 提供
 
   // ---- 吉祥物 ----
   function paint(m) {
@@ -226,7 +227,7 @@ export function createScreens() {
       btn.className = `team${on ? ' is-on' : ''}`;
       btn.setAttribute('aria-pressed', String(on));
       const n = peers && peers.teams[b.key];
-      btn.innerHTML = `${dogHeadSVG(b.key, on ? 'happy' : 'idle')}<b>${b.team}</b><small>${n ? `在线 ${n}` : '&nbsp;'}</small>`;
+      btn.innerHTML = `${dogHeadSVG(b.key, on ? 'happy' : 'idle')}<b>${b.team}</b><small>${n ? `在线 ${n}` : '\u00a0'}</small>`;
       btn.addEventListener('click', () => onPick(b.key));
       grid.appendChild(btn);
     }
@@ -278,8 +279,8 @@ export function createScreens() {
         <div class="stat"><small>道具</small><b>${info.propsUsed} 次</b></div>
       </div>
       <div class="card-wrap" id="card-wrap">战绩图生成中…</div>
-      <p class="card-tip" id="card-tip" hidden>手机上可以长按图片保存</p>
-      <div class="roast" id="roast" hidden></div>`;
+      <p class="card-tip" id="card-tip" hidden="">手机上可以长按图片保存</p>
+      <div class="roast" id="roast" hidden=""></div>`;
     const title = won ? (info.key === 'daily2' ? '今日挑战通关！' : '通关成功！') : '卡槽满啦！';
     const actions = won
       ? [

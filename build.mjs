@@ -47,34 +47,56 @@ export function bundleModules(srcDir, entryRel) {
   return js;
 }
 
-export function assemblePages({ tpl, css, js }) {
+// 完整文档共用的 head 标签（自闭合写法在 HTML 和 XHTML 里都合法）
+const HEAD_TAGS = [
+  '<meta charset="utf-8"/>',
+  '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>',
+  '<meta name="description" content="狗了个狗：狗狗主题的三消堆叠小游戏，每天一关，看你能不能通关。"/>',
+  '<meta name="theme-color" content="#9ed36a"/>',
+  `<link rel="icon" href="${FAVICON}"/>`,
+  '<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>',
+];
+
+function splitTemplate(tpl, js) {
   const parts = tpl.split('<!--@BODY-->');
   if (parts.length !== 2) throw new Error('模板缺少 <!--@BODY--> 分隔');
   if (/<\/script/i.test(js)) throw new Error('脚本中不得出现 </script');
+  return parts;
+}
+
+export function assemblePages({ tpl, css, js }) {
+  const parts = splitTemplate(tpl, js);
   const script = `(() => {\n'use strict';\n${js}\n})();`;
   const fill = (s) => s.replace('/*@CSS*/', () => css).replace('/*@JS*/', () => script).trim();
   const head = fill(parts[0]);
   const body = fill(parts[1]);
   const fragment = `${head}\n${body}\n`;
-  const standalone = [
-    '<!doctype html>',
-    '<html lang="zh-CN">',
+  const standalone = ['<!doctype html>', '<html lang="zh-CN">', '<head>', ...HEAD_TAGS, head, '</head>', '<body>', body, '</body>', '</html>', ''].join('\n');
+  return { standalone, fragment };
+}
+
+// XHTML 版：jsDelivr 把 .html 当纯文本返回，但 .xhtml 会按 application/xhtml+xml 返回，浏览器能正常运行。
+// XML 规则更严：样式与脚本包进 CDATA（其中的 "]]>" 拆开）；模板与运行时插入的片段必须是良构 XML（tests/xhtml.test.mjs 把关）
+export function assembleXhtml({ tpl, css, js }) {
+  const parts = splitTemplate(tpl, js);
+  const cdata = (s) => s.split(']]>').join(']]]]><![CDATA[>');
+  const script = `//<![CDATA[\n(() => {\n'use strict';\n${cdata(js)}\n})();\n//]]>`;
+  const style = `/*<![CDATA[*/\n${cdata(css)}\n/*]]>*/`;
+  const fill = (s) => s.replace('/*@CSS*/', () => style).replace('/*@JS*/', () => script).trim();
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<!DOCTYPE html>',
+    '<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-CN" xml:lang="zh-CN">',
     '<head>',
-    '<meta charset="utf-8">',
-    '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
-    '<meta name="description" content="狗了个狗：狗狗主题的三消堆叠小游戏，每天一关，看你能不能通关。">',
-    '<meta name="theme-color" content="#9ed36a">',
-    `<link rel="icon" href="${FAVICON}">`,
-    '<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>',
-    head,
+    ...HEAD_TAGS,
+    fill(parts[0]),
     '</head>',
     '<body>',
-    body,
+    fill(parts[1]),
     '</body>',
     '</html>',
     '',
   ].join('\n');
-  return { standalone, fragment };
 }
 
 export function assertNoExternal(html, label) {
@@ -87,19 +109,21 @@ export function buildPages() {
   const js = bundleModules(SRC, 'ui/main.js');
   const css = fs.readFileSync(path.join(SRC, 'styles.css'), 'utf8');
   const tpl = fs.readFileSync(path.join(SRC, 'index.html'), 'utf8');
-  const pages = assemblePages({ tpl, css, js });
+  const pages = { ...assemblePages({ tpl, css, js }), xhtml: assembleXhtml({ tpl, css, js }) };
   assertNoExternal(pages.standalone, 'dist/index.html');
   assertNoExternal(pages.fragment, 'dist/artifact.html');
+  assertNoExternal(pages.xhtml, 'dist/index.xhtml');
   return pages;
 }
 
 function main() {
-  const { standalone, fragment } = buildPages();
+  const { standalone, fragment, xhtml } = buildPages();
   fs.mkdirSync(DIST, { recursive: true });
   fs.writeFileSync(path.join(DIST, 'index.html'), standalone);
   fs.writeFileSync(path.join(DIST, 'artifact.html'), fragment);
+  fs.writeFileSync(path.join(DIST, 'index.xhtml'), xhtml);
   const kb = (s) => `${(Buffer.byteLength(s) / 1024).toFixed(1)} KB`;
-  console.log(`dist/index.html ${kb(standalone)}，dist/artifact.html ${kb(fragment)}`);
+  console.log(`dist/index.html ${kb(standalone)}，dist/artifact.html ${kb(fragment)}，dist/index.xhtml ${kb(xhtml)}`);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

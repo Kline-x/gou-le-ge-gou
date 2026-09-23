@@ -1,5 +1,6 @@
-<!doctype html>
-<html lang="zh-CN">
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-CN" xml:lang="zh-CN">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
@@ -8,7 +9,8 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cg fill='%23E8913A' stroke='%233B2A1A' stroke-width='3'%3E%3Cellipse cx='32' cy='42' rx='14' ry='12'/%3E%3Ccircle cx='15' cy='26' r='6'/%3E%3Ccircle cx='25' cy='15' r='6'/%3E%3Ccircle cx='39' cy='15' r='6'/%3E%3Ccircle cx='49' cy='26' r='6'/%3E%3C/g%3E%3C/svg%3E"/>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 <title>狗了个狗</title>
-<style>/* ===== 设计令牌：白天草坪（浅色，完整定义） ===== */
+<style>/*<![CDATA[*/
+/* ===== 设计令牌：白天草坪（浅色，完整定义） ===== */
 :root {
   --font: "PingFang SC", "HarmonyOS Sans SC", "MiSans", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", system-ui, sans-serif;
   --bg: #9ed36a;
@@ -376,7 +378,8 @@ button { font: inherit; color: inherit; }
   /* 提示条和连消文字的动画以透明收尾，压缩时长后会一出现就消失；改为静态显示，由定时器移除 */
   .toast, .combo { animation: none !important; }
 }
-</style>
+
+/*]]>*/</style>
 </head>
 <body>
 <div class="app" id="app">
@@ -432,7 +435,8 @@ button { font: inherit; color: inherit; }
   <canvas class="fx" id="fx" aria-hidden="true"></canvas>
   <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 </div>
-<script>(() => {
+<script>//<![CDATA[
+(() => {
 'use strict';
 // ---- core/rng.js ----
 const __m_core_rng_js = (() => {
@@ -3960,6 +3964,7 @@ hotBoot(boot);
 return {  };
 })();
 
-})();</script>
+})();
+//]]></script>
 </body>
 </html>

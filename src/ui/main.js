@@ -41,6 +41,7 @@ function boot(hot) {
   let s = null;
   let card = null;
   let roastCtl = null;
+  let resultSeq = 0; // 每次弹结算加一，晚到的旧战绩图直接丢弃
 
   const platform = initPlatform({
     onPeers: (p) => { peers = p; renderHome(); },
@@ -275,6 +276,7 @@ function boot(hot) {
 
   function showResult(info) {
     const cur = s;
+    const seq = ++resultSeq;
     if (card) URL.revokeObjectURL(card.url);
     card = null;
     const daily2Won = info.result === 'won' && info.key === 'daily2';
@@ -287,6 +289,8 @@ function boot(hot) {
       onRevive: () => {
         const events = cur.game.revive();
         if (!events) return;
+        stopRoast();
+        resultSeq++;
         ui.close();
         audio.play('revive');
         ui.setBaseMood('idle');
@@ -327,7 +331,7 @@ function boot(hot) {
       },
     });
     renderShareCard(info).then((c) => {
-      if (s !== cur) { URL.revokeObjectURL(c.url); return; }
+      if (s !== cur || seq !== resultSeq) { URL.revokeObjectURL(c.url); return; }
       card = c;
       ui.setCard(c.url, () => c.canvas.toDataURL('image/png'));
     }).catch(() => ui.cardFailed());

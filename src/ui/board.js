@@ -181,7 +181,7 @@ export function createBoard({ screen, stage, slotEl, playfield, onTap }) {
       el.type = 'button';
       el.className = 'tile';
       el.dataset.id = String(t.id);
-      el.innerHTML = `<span class="tile-face"><svg aria-hidden="true" focusable="false"><use href="#ic-${ICONS[t.kind].key}"></use></svg></span>`;
+      el.innerHTML = `<span class="tile-face"><svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><use href="#ic-${ICONS[t.kind].key}"></use></svg></span>`;
       els[t.id] = el;
       frag.appendChild(el);
     }

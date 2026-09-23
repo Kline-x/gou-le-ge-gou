@@ -372,9 +372,9 @@ button { font: inherit; color: inherit; }
   <section class="screen home" id="home" aria-label="首页">
     <header class="home-top">
       <button class="icon-btn" id="btn-settings" type="button" aria-label="设置">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Zm8.4 2-1.9-.4a7 7 0 0 0-.6-1.5l1.1-1.6-1.9-1.9-1.6 1.1a7 7 0 0 0-1.5-.6l-.4-1.9h-2.7l-.4 1.9a7 7 0 0 0-1.5.6L5.3 5.2 3.4 7.1l1.1 1.6a7 7 0 0 0-.6 1.5l-1.9.4v2.7l1.9.4c.1.5.3 1 .6 1.5l-1.1 1.6 1.9 1.9 1.6-1.1c.5.3 1 .5 1.5.6l.4 1.9h2.7l.4-1.9c.5-.1 1-.3 1.5-.6l1.6 1.1 1.9-1.9-1.1-1.6c.3-.5.5-1 .6-1.5l1.9-.4v-2.7Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Zm8.4 2-1.9-.4a7 7 0 0 0-.6-1.5l1.1-1.6-1.9-1.9-1.6 1.1a7 7 0 0 0-1.5-.6l-.4-1.9h-2.7l-.4 1.9a7 7 0 0 0-1.5.6L5.3 5.2 3.4 7.1l1.1 1.6a7 7 0 0 0-.6 1.5l-1.9.4v2.7l1.9.4c.1.5.3 1 .6 1.5l-1.1 1.6 1.9 1.9 1.6-1.1c.5.3 1 .5 1.5.6l.4 1.9h2.7l.4-1.9c.5-.1 1-.3 1.5-.6l1.6 1.1 1.9-1.9-1.1-1.6c.3-.5.5-1 .6-1.5l1.9-.4v-2.7Z"/></svg>
       </button>
-      <div class="online" id="online" hidden><i class="online-dot" aria-hidden="true"></i>此刻在线 <b id="online-count">1</b> 只狗</div>
+      <div class="online" id="online" hidden=""><i class="online-dot" aria-hidden="true"></i>此刻在线 <b id="online-count">1</b> 只狗</div>
       <button class="icon-btn" id="btn-help" type="button" aria-label="玩法说明"><b aria-hidden="true">?</b></button>
     </header>
     <h1 class="logo" id="logo"><span class="sr-only">狗了个狗</span></h1>
@@ -392,10 +392,10 @@ button { font: inherit; color: inherit; }
     <footer class="home-foot"><span class="team-chip" id="team-chip"></span><span class="streak" id="streak"></span></footer>
   </section>
 
-  <section class="screen game" id="game" aria-label="对局" hidden>
+  <section class="screen game" id="game" aria-label="对局" hidden="">
     <header class="bar">
       <button class="icon-btn" id="btn-pause" type="button" aria-label="暂停">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>
       </button>
       <div class="bar-title" id="level-name">第 1 关</div>
       <div class="bar-left">剩 <b id="tiles-left">0</b> 张</div>
@@ -405,17 +405,17 @@ button { font: inherit; color: inherit; }
       <i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i>
     </div>
     <div class="dock">
-      <div class="mascot" id="mascot"><div class="bubble" id="bubble" role="status" hidden></div><div class="mascot-face" id="mascot-face"></div></div>
+      <div class="mascot" id="mascot"><div class="bubble" id="bubble" role="status" hidden=""></div><div class="mascot-face" id="mascot-face"></div></div>
       <div class="props">
-        <button class="prop" id="prop-moveOut" type="button" data-prop="moveOut"><span class="prop-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 20h14M12 16V4M7 9l5-5 5 5"/></svg></span><span class="prop-name">移出</span><i class="badge" id="badge-moveOut">1</i></button>
-        <button class="prop" id="prop-undo" type="button" data-prop="undo"><span class="prop-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></span><span class="prop-name">撤回</span><i class="badge" id="badge-undo">1</i></button>
-        <button class="prop" id="prop-shuffle" type="button" data-prop="shuffle"><span class="prop-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h4l10 10h4M3 17h4L17 7h4M18 4l3 3-3 3M18 14l3 3-3 3"/></svg></span><span class="prop-name">洗牌</span><i class="badge" id="badge-shuffle">1</i></button>
+        <button class="prop" id="prop-moveOut" type="button" data-prop="moveOut"><span class="prop-ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 20h14M12 16V4M7 9l5-5 5 5"/></svg></span><span class="prop-name">移出</span><i class="badge" id="badge-moveOut">1</i></button>
+        <button class="prop" id="prop-undo" type="button" data-prop="undo"><span class="prop-ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></span><span class="prop-name">撤回</span><i class="badge" id="badge-undo">1</i></button>
+        <button class="prop" id="prop-shuffle" type="button" data-prop="shuffle"><span class="prop-ic" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 7h4l10 10h4M3 17h4L17 7h4M18 4l3 3-3 3M18 14l3 3-3 3"/></svg></span><span class="prop-name">洗牌</span><i class="badge" id="badge-shuffle">1</i></button>
       </div>
     </div>
     <div class="playfield" id="playfield"></div>
   </section>
 
-  <div class="modal-layer" id="modal-layer" hidden>
+  <div class="modal-layer" id="modal-layer" hidden="">
     <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1"></div>
   </div>
   <canvas class="fx" id="fx" aria-hidden="true"></canvas>
@@ -3050,7 +3050,7 @@ function createBoard({ screen, stage, slotEl, playfield, onTap }) {
       el.type = 'button';
       el.className = 'tile';
       el.dataset.id = String(t.id);
-      el.innerHTML = `<span class="tile-face"><svg aria-hidden="true" focusable="false"><use href="#ic-${ICONS[t.kind].key}"></use></svg></span>`;
+      el.innerHTML = `<span class="tile-face"><svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><use href="#ic-${ICONS[t.kind].key}"></use></svg></span>`;
       els[t.id] = el;
       frag.appendChild(el);
     }
@@ -3180,7 +3180,8 @@ function createScreens() {
   let bubbleTimer = 0;
   let lastFocus = null;
 
-  $('logo').insertAdjacentHTML('beforeend', logoSVG().replace('<svg', '<svg aria-hidden="true"'));
+  $('logo').insertAdjacentHTML('beforeend', logoSVG());
+  $('logo').lastElementChild.setAttribute('aria-hidden', 'true'); // 标题文字已由 sr-only 提供
 
   // ---- 吉祥物 ----
   function paint(m) {
@@ -3388,7 +3389,7 @@ function createScreens() {
       btn.className = `team${on ? ' is-on' : ''}`;
       btn.setAttribute('aria-pressed', String(on));
       const n = peers && peers.teams[b.key];
-      btn.innerHTML = `${dogHeadSVG(b.key, on ? 'happy' : 'idle')}<b>${b.team}</b><small>${n ? `在线 ${n}` : '&nbsp;'}</small>`;
+      btn.innerHTML = `${dogHeadSVG(b.key, on ? 'happy' : 'idle')}<b>${b.team}</b><small>${n ? `在线 ${n}` : '\u00a0'}</small>`;
       btn.addEventListener('click', () => onPick(b.key));
       grid.appendChild(btn);
     }
@@ -3440,8 +3441,8 @@ function createScreens() {
         <div class="stat"><small>道具</small><b>${info.propsUsed} 次</b></div>
       </div>
       <div class="card-wrap" id="card-wrap">战绩图生成中…</div>
-      <p class="card-tip" id="card-tip" hidden>手机上可以长按图片保存</p>
-      <div class="roast" id="roast" hidden></div>`;
+      <p class="card-tip" id="card-tip" hidden="">手机上可以长按图片保存</p>
+      <div class="roast" id="roast" hidden=""></div>`;
     const title = won ? (info.key === 'daily2' ? '今日挑战通关！' : '通关成功！') : '卡槽满啦！';
     const actions = won
       ? [
@@ -3550,6 +3551,7 @@ function boot(hot) {
   let s = null;
   let card = null;
   let roastCtl = null;
+  let resultSeq = 0; // 每次弹结算加一，晚到的旧战绩图直接丢弃
 
   const platform = initPlatform({
     onPeers: (p) => { peers = p; renderHome(); },
@@ -3784,6 +3786,7 @@ function boot(hot) {
 
   function showResult(info) {
     const cur = s;
+    const seq = ++resultSeq;
     if (card) URL.revokeObjectURL(card.url);
     card = null;
     const daily2Won = info.result === 'won' && info.key === 'daily2';
@@ -3796,6 +3799,8 @@ function boot(hot) {
       onRevive: () => {
         const events = cur.game.revive();
         if (!events) return;
+        stopRoast();
+        resultSeq++;
         ui.close();
         audio.play('revive');
         ui.setBaseMood('idle');
@@ -3836,7 +3841,7 @@ function boot(hot) {
       },
     });
     renderShareCard(info).then((c) => {
-      if (s !== cur) { URL.revokeObjectURL(c.url); return; }
+      if (s !== cur || seq !== resultSeq) { URL.revokeObjectURL(c.url); return; }
       card = c;
       ui.setCard(c.url, () => c.canvas.toDataURL('image/png'));
     }).catch(() => ui.cardFailed());
