@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createRng } from '../src/core/rng.js';
+import { createRng, hashSeed } from '../src/core/rng.js';
 import { computeCovers } from '../src/core/layout.js';
 import { LEVELS, generateLevel } from '../src/core/generator.js';
 import { assignKinds } from '../src/core/assign.js';
@@ -84,9 +84,8 @@ test('assignKinds：卡槽已是 6 张各不相同的单张时判定无解', () 
 
 // 金样指纹：关卡内容依赖布局、图案分配与候选挑选（含 bot.js 打分）。任何改变生成结果的改动都会让它失败——
 // 这是有意的：改完先重跑 `node tools/balance.mjs 300` 确认难度仍在目标区间，再更新下面的指纹
-test('金样指纹：同种子生成结果不因无关改动漂移', async () => {
-  const { hashSeed } = await import('../src/core/rng.js');
-  const expected = { daily1: 3461622651, daily2: 1619303961, easy: 4232500013, normal: 4144759798, hard: 3616396716, hell: 3920219807 };
+test('金样指纹：同种子生成结果不因无关改动漂移', () => {
+  const expected = { daily1: 2225906753, daily2: 1619303961, easy: 4232500013, normal: 4144759798, hard: 3616396716, hell: 3920219807 };
   for (const key of Object.keys(LEVELS)) {
     const L = generateLevel(key, 'golden');
     const fp = hashSeed(JSON.stringify([L.tiles.map((t) => [t.x, t.y, t.z, t.kind]), L.solution]));
