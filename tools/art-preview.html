@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>狗了个狗 · 美术资源预览</title>
+<style>
+  /* 牌面配色与 Global Constraints 一致 */
+  :root {
+    --face: #FFFBF0;
+    --edge: #E2B878;
+    --line: #7A5A34;
+    --ink: #3B2A1A;
+    --lawn: #7CC45A;
+    --lawn-dark: #6BB34B;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--ink);
+    background: repeating-linear-gradient(0deg, var(--lawn) 0 28px, var(--lawn-dark) 28px 56px);
+  }
+  h1 { margin: 0 0 12px; font-size: 20px; }
+  h2 { margin: 0 0 10px; font-size: 16px; }
+  section {
+    background: rgba(255, 255, 255, .88);
+    border: 2px solid var(--ink);
+    border-radius: 14px;
+    padding: 14px;
+    margin: 0 0 16px;
+    overflow-x: auto;
+  }
+  /* 牌面：奶油白面 + 底部约 12% 饼干色厚边 + 深棕描边 + 约 18% 圆角 */
+  .tile {
+    --t: 80px;
+    --i: 64px;
+    width: var(--t);
+    height: var(--t);
+    flex: none;
+    display: grid;
+    place-items: center;
+    background: var(--face);
+    border: 2px solid var(--line);
+    border-radius: 18%;
+    box-shadow: inset 0 calc(var(--t) * -0.12) 0 var(--edge);
+    padding-bottom: calc(var(--t) * 0.12);
+  }
+  .tile svg { width: var(--i); height: var(--i); display: block; }
+  .grid64 { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 12px; }
+  .grid64 figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  figcaption { font-size: 12px; text-align: center; line-height: 1.35; }
+  figcaption small { display: block; color: #6B5A48; }
+  .swatch { display: inline-block; width: 9px; height: 9px; border: 1px solid var(--ink); border-radius: 2px; vertical-align: -1px; margin-right: 2px; }
+  .row28 { display: flex; flex-wrap: wrap; gap: 6px; }
+  .dogs { display: grid; grid-template-columns: 76px repeat(6, 96px); gap: 6px; align-items: center; min-width: 670px; }
+  .dogs .head { font-size: 13px; font-weight: 700; text-align: center; }
+  .dogs .breed { font-size: 13px; font-weight: 700; }
+  .dogs .breed small { display: block; font-weight: 400; color: #6B5A48; }
+  .dogs svg { width: 96px; height: 96px; display: block; background: #FFF6E4; border-radius: 16px; }
+  .strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
+  .strip svg { width: 40px; height: 40px; display: block; }
+  .logos { display: grid; gap: 12px; }
+  .logo-box { border-radius: 12px; padding: 16px; display: flex; flex-wrap: wrap; gap: 24px; align-items: center; }
+  .logo-box.light { background: #FFF3D6; }
+  .logo-box.dark { background: #15230F; }
+  .logo-box .big svg { width: min(400px, 100%); height: auto; display: block; }
+  .logo-box .big { flex: 1 1 280px; max-width: 400px; }
+  .logo-box .mini svg { width: 200px; height: auto; display: block; }
+</style>
+</head>
+<body>
+  <div id="sprite"></div>
+  <h1>狗了个狗 · 美术资源预览</h1>
+
+  <section>
+    <h2>16 种图案 · 64px（iconSVG）</h2>
+    <div class="grid64" id="icons64"></div>
+  </section>
+
+  <section>
+    <h2>16 种图案 · 28px（sprite + &lt;use&gt;，牌边长 36px）</h2>
+    <div class="row28" id="icons28"></div>
+  </section>
+
+  <section>
+    <h2>狗头 · 6 犬种 × 6 心情</h2>
+    <div class="dogs" id="dogs"></div>
+    <div class="strip" id="dogs40"></div>
+  </section>
+
+  <section>
+    <h2>字标</h2>
+    <div class="logos">
+      <div class="logo-box light"><div class="big" id="logo-light"></div><div class="mini" id="logo-light-mini"></div></div>
+      <div class="logo-box dark"><div class="big" id="logo-dark"></div><div class="mini" id="logo-dark-mini"></div></div>
+    </div>
+  </section>
+
+<script type="module">
+  import { ICONS, iconSVG, iconSymbolsSVG } from '../src/art/icons.js';
+  import { BREEDS, MOODS, dogHeadSVG } from '../src/art/dogs.js';
+  import { logoSVG } from '../src/art/logo.js';
+
+  const $ = (id) => document.getElementById(id);
+
+  // sprite 放进页面，28px 一行用 <use> 引用，顺便验证 sprite 可用
+  $('sprite').innerHTML = iconSymbolsSVG();
+
+  $('icons64').innerHTML = ICONS.map((ic, k) => `
+    <figure>
+      <div class="tile" style="--t:80px;--i:64px">${iconSVG(k, 64)}</div>
+      <figcaption>${k} · ${ic.name}<small>${ic.key} <span class="swatch" style="background:${ic.color}"></span>${ic.color}</small></figcaption>
+    </figure>`).join('');
+
+  $('icons28').innerHTML = ICONS.map((ic) => `
+    <div class="tile" style="--t:36px;--i:28px" title="${ic.name}">
+      <svg viewBox="0 0 64 64" width="28" height="28"><use href="#ic-${ic.key}"/></svg>
+    </div>`).join('');
+
+  // 6 行（犬种）× 6 列（心情）
+  const cells = ['<div></div>', ...MOODS.map((m) => `<div class="head">${m}</div>`)];
+  for (const b of BREEDS) {
+    cells.push(`<div class="breed">${b.name}<small>${b.team}</small></div>`);
+    for (const m of MOODS) cells.push(dogHeadSVG(b.key, m));
+  }
+  $('dogs').innerHTML = cells.join('');
+
+  // 小尺寸（40px）：各犬种 idle + 柴犬 6 种心情
+  $('dogs40').innerHTML = '<b style="font-size:12px">40px：</b>'
+    + BREEDS.map((b) => dogHeadSVG(b.key, 'idle')).join('')
+    + '<span style="width:12px"></span>'
+    + MOODS.map((m) => dogHeadSVG('shiba', m)).join('');
+
+  const logo = logoSVG();
+  for (const id of ['logo-light', 'logo-light-mini', 'logo-dark', 'logo-dark-mini']) $(id).innerHTML = logo;
+</script>
+</body>
+</html>
