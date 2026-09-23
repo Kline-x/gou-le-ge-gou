@@ -7,7 +7,7 @@
       <button class="icon-btn" id="btn-settings" type="button" aria-label="设置">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Zm8.4 2-1.9-.4a7 7 0 0 0-.6-1.5l1.1-1.6-1.9-1.9-1.6 1.1a7 7 0 0 0-1.5-.6l-.4-1.9h-2.7l-.4 1.9a7 7 0 0 0-1.5.6L5.3 5.2 3.4 7.1l1.1 1.6a7 7 0 0 0-.6 1.5l-1.9.4v2.7l1.9.4c.1.5.3 1 .6 1.5l-1.1 1.6 1.9 1.9 1.6-1.1c.5.3 1 .5 1.5.6l.4 1.9h2.7l.4-1.9c.5-.1 1-.3 1.5-.6l1.6 1.1 1.9-1.9-1.1-1.6c.3-.5.5-1 .6-1.5l1.9-.4v-2.7Z"/></svg>
       </button>
-      <div class="online" id="online" hidden><i class="online-dot" aria-hidden="true"></i>在线狗友 <b id="online-count">1</b></div>
+      <div class="online" id="online" hidden><i class="online-dot" aria-hidden="true"></i>此刻在线 <b id="online-count">1</b> 只狗</div>
       <button class="icon-btn" id="btn-help" type="button" aria-label="玩法说明"><b aria-hidden="true">?</b></button>
     </header>
     <h1 class="logo" id="logo"><span class="sr-only">狗了个狗</span></h1>
@@ -34,7 +34,7 @@
       <div class="bar-left">剩 <b id="tiles-left">0</b> 张</div>
     </header>
     <div class="stage" id="stage"></div>
-    <div class="slot" id="slot" role="list" aria-label="卡槽，最多 7 张">
+    <div class="slot" id="slot" role="group" aria-label="卡槽，最多 7 张">
       <i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i>
     </div>
     <div class="dock">

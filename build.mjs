@@ -25,6 +25,7 @@ function parseModule(srcDir, rel) {
     return `${kw} ${name}`;
   });
   if (/^\s*export\s/m.test(body)) throw new Error(`${rel}：只支持 export function / const / class`);
+  if (/^export\s+(?:const|let)\s+[\w$]+\s*=[^;\n]*,\s*[\w$]+\s*=/m.test(code)) throw new Error(`${rel}：每条 export 只能声明一个名字`);
   return { rel, imports, exports, body };
 }
 
@@ -77,17 +78,23 @@ export function assemblePages({ tpl, css, js }) {
 }
 
 export function assertNoExternal(html, label) {
-  const bad = html.match(/(?:src|href)\s*=\s*["']?https?:|url\(\s*["']?https?:|@import/gi);
+  const bad = html.match(/(?:src|srcset|href)\s*=\s*["']?(?:https?:)?\/\/|url\(\s*["']?(?:https?:)?\/\/|@import/gi);
   if (bad) throw new Error(`${label} 含外部资源引用：${bad.slice(0, 3).join(' | ')}`);
 }
 
-function main() {
+// 用当前源码在内存里构建两份页面（main 与 dist 一致性测试共用）
+export function buildPages() {
   const js = bundleModules(SRC, 'ui/main.js');
   const css = fs.readFileSync(path.join(SRC, 'styles.css'), 'utf8');
   const tpl = fs.readFileSync(path.join(SRC, 'index.html'), 'utf8');
-  const { standalone, fragment } = assemblePages({ tpl, css, js });
-  assertNoExternal(standalone, 'dist/index.html');
-  assertNoExternal(fragment, 'dist/artifact.html');
+  const pages = assemblePages({ tpl, css, js });
+  assertNoExternal(pages.standalone, 'dist/index.html');
+  assertNoExternal(pages.fragment, 'dist/artifact.html');
+  return pages;
+}
+
+function main() {
+  const { standalone, fragment } = buildPages();
   fs.mkdirSync(DIST, { recursive: true });
   fs.writeFileSync(path.join(DIST, 'index.html'), standalone);
   fs.writeFileSync(path.join(DIST, 'artifact.html'), fragment);

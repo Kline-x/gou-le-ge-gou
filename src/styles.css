@@ -228,7 +228,8 @@ button { font: inherit; color: inherit; }
 .mascot-face { width: 64px; height: 64px; }
 .mascot-face svg { width: 100%; height: 100%; display: block; }
 .bubble {
-  position: absolute; left: 4px; bottom: calc(100% + 10px); z-index: 1200;
+  position: absolute; left: calc(100% + 12px); top: 50%; z-index: 1200; pointer-events: none;
+  translate: 0 -50%;
   width: max-content; max-width: min(260px, 72vw);
   padding: 8px 12px; border-radius: 14px;
   background: var(--bubble); color: var(--bubble-text); border: 2px solid var(--ink);
@@ -236,7 +237,7 @@ button { font: inherit; color: inherit; }
   box-shadow: 0 3px 0 rgba(0, 0, 0, .2);
   animation: pop-in .2s ease-out;
 }
-.bubble::after { content: ""; position: absolute; left: 22px; top: 100%; border: 8px solid transparent; border-top-color: var(--ink); }
+.bubble::after { content: ""; position: absolute; right: 100%; top: 50%; margin-top: -8px; border: 8px solid transparent; border-right-color: var(--ink); }
 .props { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .prop {
   position: relative; display: grid; justify-items: center; gap: 2px;
@@ -362,4 +363,6 @@ button { font: inherit; color: inherit; }
 /* ===== 减少动态 ===== */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  /* 提示条和连消文字的动画以透明收尾，压缩时长后会一出现就消失；改为静态显示，由定时器移除 */
+  .toast, .combo { animation: none !important; }
 }

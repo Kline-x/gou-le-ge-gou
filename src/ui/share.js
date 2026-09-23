@@ -106,9 +106,10 @@ export async function renderShareCard(info) {
 
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob) throw new Error('战绩图导出失败');
-  return { blob, url: URL.createObjectURL(blob) };
+  return { blob, url: URL.createObjectURL(blob), canvas };
 }
 
+// 返回 'saved' | 'declined' | 'unavailable' | 'failed' | 'shared' | 'downloaded'
 export async function saveCard(blob, platform) {
   const filename = `狗了个狗战绩-${Date.now()}.png`;
   if (platform.downloads) {
@@ -116,7 +117,10 @@ export async function saveCard(blob, platform) {
       await platform.downloads.save({ filename, data: blob });
       return 'saved';
     } catch (e) {
-      return e && e.code === 'declined' ? 'declined' : 'failed';
+      const code = e && e.code;
+      if (code === 'declined') return 'declined';
+      // 当前页面用不了保存能力：返回 unavailable，由调用方隐藏按钮
+      return ['unavailable', 'not_granted', 'capability_disabled', 'capability_removed', 'extension_not_enabled'].includes(code) ? 'unavailable' : 'failed';
     }
   }
   // Artifact 沙箱里 <a download> 与 Web Share 都不可用，只能让用户长按图片

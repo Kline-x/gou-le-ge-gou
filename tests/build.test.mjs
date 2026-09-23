@@ -40,6 +40,10 @@ test('循环依赖与不支持的写法会报错', () => {
   assert.throws(() => bundleModules(def, 'main.js'), /只支持/);
   const star = fixture({ 'main.js': "import * as x from './x.js';\n" });
   assert.throws(() => bundleModules(star, 'main.js'), /只支持/);
+  const multi = fixture({ 'main.js': 'export const A = 1, B = 2;\n' });
+  assert.throws(() => bundleModules(multi, 'main.js'), /只能声明一个名字/);
+  const ok = fixture({ 'main.js': 'export const L = [1, 2];\nexport const O = { a: 1, b: 2 };\n' });
+  assert.doesNotThrow(() => bundleModules(ok, 'main.js'));
 });
 
 test('组装两份页面', () => {
@@ -59,5 +63,7 @@ test('零外链校验', () => {
   assert.throws(() => assertNoExternal('<script src="https://x.com/a.js"></script>', 't'), /外部资源/);
   assert.throws(() => assertNoExternal('<style>a{background:url(https://x.com/a.png)}</style>', 't'), /外部资源/);
   assert.throws(() => assertNoExternal("<style>@import 'x.css';</style>", 't'), /外部资源/);
+  assert.throws(() => assertNoExternal('<script src="//cdn.example.com/a.js"></script>', 't'), /外部资源/);
+  assert.throws(() => assertNoExternal('<img srcset="https://x.com/a.png 2x">', 't'), /外部资源/);
   assert.doesNotThrow(() => assertNoExternal('<svg xmlns="http://www.w3.org/2000/svg"></svg><a href="#x">x</a><i style="background:url(data:image/svg+xml,abc)"></i>', 't'));
 });

@@ -21,8 +21,11 @@ export function createBoard({ screen, stage, slotEl, playfield, onTap }) {
   let by = 0;
   let cells = [];
   let hinted = -1;
+  let epoch = 0; // 每次 mount/clear 加一；动画回调发现代号变了就退出，避免旧对局的收尾写进新对局
 
   const tf = (p) => `translate3d(${p.x}px, ${p.y}px, 0) scale(${p.s})`;
+  // 动画结束与超时二者先到为准：页面在后台或被节流时不渲染帧，finished 不会返回，逻辑不能因此卡住
+  const settle = (anim, ms) => Promise.race([anim.finished.catch(() => {}), new Promise((r) => setTimeout(r, ms + 150))]);
 
   // 鼠标/触屏在 pointerdown 就响应（更跟手）；键盘回车/空格产生的 click（detail === 0）另行处理
   playfield.addEventListener('pointerdown', (e) => {
@@ -93,7 +96,7 @@ export function createBoard({ screen, stage, slotEl, playfield, onTap }) {
     const frames = lift
       ? [{ transform: tf(from) }, { transform: tf({ x: (from.x + p.x) / 2, y: Math.min(from.y, p.y) - lift, s: Math.max(from.s, p.s) * 1.1 }), offset: 0.45 }, { transform: tf(p) }]
       : [{ transform: tf(from) }, { transform: tf(p) }];
-    return el.animate(frames, { duration: ms, easing: 'cubic-bezier(.3,.7,.35,1)' }).finished.catch(() => {});
+    return settle(el.animate(frames, { duration: ms, easing: 'cubic-bezier(.3,.7,.35,1)' }), ms);
   }
 
   // 以牌中心为基准缩放（transform-origin 在左上角，需要补偿位移）
@@ -104,16 +107,20 @@ export function createBoard({ screen, stage, slotEl, playfield, onTap }) {
   }
 
   function pop(id) {
+    const ep = epoch;
     const el = els[id];
     const p = pos.get(id);
     if (!el || !p) return Promise.resolve();
     const done = reduce
       ? Promise.resolve()
-      : el.animate(
+      : settle(el.animate(
         [{ transform: tf(p), opacity: 1 }, { transform: tf(around(p, 1.25)), opacity: 1, offset: 0.35 }, { transform: tf(around(p, 0.2)), opacity: 0 }],
         { duration: 220, easing: 'ease-in', fill: 'forwards' },
-      ).finished.catch(() => {});
-    return done.then(() => { el.remove(); els[id] = null; pos.delete(id); });
+      ), 220);
+    return done.then(() => {
+      el.remove();
+      if (ep === epoch) { els[id] = null; pos.delete(id); }
+    });
   }
 
   function setIcon(id, kind) {
@@ -122,20 +129,22 @@ export function createBoard({ screen, stage, slotEl, playfield, onTap }) {
   }
 
   async function flip(changes) {
+    const ep = epoch;
     const ids = game.state.tiles.filter((t) => t.zone === 'board' && els[t.id]).map((t) => t.id);
     const squash = (p, k) => `${tf(p)} translate(${T / 2}px, 0) scaleX(${k}) translate(${-T / 2}px, 0)`;
     if (!reduce) {
-      await Promise.all(ids.map((id) => els[id].animate(
+      await Promise.all(ids.map((id) => settle(els[id].animate(
         [{ transform: tf(pos.get(id)) }, { transform: squash(pos.get(id), 0.05) }],
         { duration: 150, easing: 'ease-in', fill: 'forwards' },
-      ).finished.catch(() => {})));
+      ), 150)));
     }
+    if (ep !== epoch) return;
     for (const c of changes) setIcon(c.id, c.kind);
     if (!reduce) {
       await Promise.all(ids.map((id) => {
         const el = els[id];
         for (const a of el.getAnimations()) a.cancel();
-        return el.animate([{ transform: squash(pos.get(id), 0.05) }, { transform: tf(pos.get(id)) }], { duration: 170, easing: 'ease-out' }).finished.catch(() => {});
+        return settle(el.animate([{ transform: squash(pos.get(id), 0.05) }, { transform: tf(pos.get(id)) }], { duration: 170, easing: 'ease-out' }), 170);
       }));
     }
   }
@@ -156,6 +165,7 @@ export function createBoard({ screen, stage, slotEl, playfield, onTap }) {
   }
 
   function mount(g) {
+    epoch++;
     game = g;
     const st = g.state;
     playfield.textContent = '';
@@ -191,6 +201,8 @@ export function createBoard({ screen, stage, slotEl, playfield, onTap }) {
   }
 
   async function play(events, hooks = {}) {
+    const ep = epoch;
+    const stale = () => ep !== epoch;
     for (const ev of events) {
       if (ev.type === 'pick') {
         visualSlot.splice(ev.slotIndex, 0, ev.id);
@@ -200,14 +212,17 @@ export function createBoard({ screen, stage, slotEl, playfield, onTap }) {
         const jobs = [move(ev.id, slotAt(ev.slotIndex), 200, T * 0.9)];
         visualSlot.forEach((id, i) => { if (id !== ev.id) jobs.push(move(id, slotAt(i), 150)); });
         await Promise.all(jobs);
+        if (stale()) return;
         el.classList.remove('is-flying');
         hooks.onLand?.(ev);
       } else if (ev.type === 'eliminate') {
         const cs = ev.ids.map(center);
         hooks.onEliminate?.(ev, { x: cs.reduce((a, c) => a + c.x, 0) / cs.length, y: cs.reduce((a, c) => a + c.y, 0) / cs.length });
         await Promise.all(ev.ids.map(pop));
+        if (stale()) return;
         visualSlot = visualSlot.filter((id) => !ev.ids.includes(id));
         await Promise.all(visualSlot.map((id, i) => move(id, slotAt(i), 150)));
+        if (stale()) return;
       } else if (ev.type === 'moveOut') {
         const moved = new Set(ev.moves.map((m) => m.id));
         visualSlot = visualSlot.filter((id) => !moved.has(id));
@@ -216,12 +231,15 @@ export function createBoard({ screen, stage, slotEl, playfield, onTap }) {
           ...ev.moves.map((m) => move(m.id, bufPos(m.col, m.height), 280, T * 0.7)),
           ...visualSlot.map((id, i) => move(id, slotAt(i), 180)),
         ]);
+        if (stale()) return;
       } else if (ev.type === 'undo') {
         visualSlot = visualSlot.filter((id) => id !== ev.id);
         refresh();
         await Promise.all([move(ev.id, posOf(ev.id), 260, T * 0.8), ...visualSlot.map((id, i) => move(id, slotAt(i), 160))]);
+        if (stale()) return;
       } else if (ev.type === 'shuffle') {
         await flip(ev.changes);
+        if (stale()) return;
       }
     }
     refresh();
@@ -255,6 +273,7 @@ export function createBoard({ screen, stage, slotEl, playfield, onTap }) {
   }
 
   function clear() {
+    epoch++;
     playfield.textContent = '';
     els = [];
     pos.clear();

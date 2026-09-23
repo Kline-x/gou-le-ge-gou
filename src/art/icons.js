@@ -228,5 +228,6 @@ export function iconSymbolsSVG() {
 // 独立完整 SVG（战绩图、预览页用）
 export function iconSVG(kind, size = 64) {
   const i = ICONS[kind] || ICONS[0];
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="${size}" height="${size}">${i.svg}</svg>`;
+  const s = Number(size) || 64; // 只接受数字，避免把任意字符串拼进属性
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="${s}" height="${s}">${i.svg}</svg>`;
 }

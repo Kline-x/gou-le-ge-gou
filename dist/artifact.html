@@ -229,7 +229,8 @@ button { font: inherit; color: inherit; }
 .mascot-face { width: 64px; height: 64px; }
 .mascot-face svg { width: 100%; height: 100%; display: block; }
 .bubble {
-  position: absolute; left: 4px; bottom: calc(100% + 10px); z-index: 1200;
+  position: absolute; left: calc(100% + 12px); top: 50%; z-index: 1200; pointer-events: none;
+  translate: 0 -50%;
   width: max-content; max-width: min(260px, 72vw);
   padding: 8px 12px; border-radius: 14px;
   background: var(--bubble); color: var(--bubble-text); border: 2px solid var(--ink);
@@ -237,7 +238,7 @@ button { font: inherit; color: inherit; }
   box-shadow: 0 3px 0 rgba(0, 0, 0, .2);
   animation: pop-in .2s ease-out;
 }
-.bubble::after { content: ""; position: absolute; left: 22px; top: 100%; border: 8px solid transparent; border-top-color: var(--ink); }
+.bubble::after { content: ""; position: absolute; right: 100%; top: 50%; margin-top: -8px; border: 8px solid transparent; border-right-color: var(--ink); }
 .props { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .prop {
   position: relative; display: grid; justify-items: center; gap: 2px;
@@ -363,6 +364,8 @@ button { font: inherit; color: inherit; }
 /* ===== 减少动态 ===== */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  /* 提示条和连消文字的动画以透明收尾，压缩时长后会一出现就消失；改为静态显示，由定时器移除 */
+  .toast, .combo { animation: none !important; }
 }
 </style>
 <div class="app" id="app">
@@ -371,7 +374,7 @@ button { font: inherit; color: inherit; }
       <button class="icon-btn" id="btn-settings" type="button" aria-label="设置">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Zm8.4 2-1.9-.4a7 7 0 0 0-.6-1.5l1.1-1.6-1.9-1.9-1.6 1.1a7 7 0 0 0-1.5-.6l-.4-1.9h-2.7l-.4 1.9a7 7 0 0 0-1.5.6L5.3 5.2 3.4 7.1l1.1 1.6a7 7 0 0 0-.6 1.5l-1.9.4v2.7l1.9.4c.1.5.3 1 .6 1.5l-1.1 1.6 1.9 1.9 1.6-1.1c.5.3 1 .5 1.5.6l.4 1.9h2.7l.4-1.9c.5-.1 1-.3 1.5-.6l1.6 1.1 1.9-1.9-1.1-1.6c.3-.5.5-1 .6-1.5l1.9-.4v-2.7Z"/></svg>
       </button>
-      <div class="online" id="online" hidden><i class="online-dot" aria-hidden="true"></i>在线狗友 <b id="online-count">1</b></div>
+      <div class="online" id="online" hidden><i class="online-dot" aria-hidden="true"></i>此刻在线 <b id="online-count">1</b> 只狗</div>
       <button class="icon-btn" id="btn-help" type="button" aria-label="玩法说明"><b aria-hidden="true">?</b></button>
     </header>
     <h1 class="logo" id="logo"><span class="sr-only">狗了个狗</span></h1>
@@ -398,7 +401,7 @@ button { font: inherit; color: inherit; }
       <div class="bar-left">剩 <b id="tiles-left">0</b> 张</div>
     </header>
     <div class="stage" id="stage"></div>
-    <div class="slot" id="slot" role="list" aria-label="卡槽，最多 7 张">
+    <div class="slot" id="slot" role="group" aria-label="卡槽，最多 7 张">
       <i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i>
     </div>
     <div class="dock">
@@ -1271,7 +1274,8 @@ function iconSymbolsSVG() {
 // 独立完整 SVG（战绩图、预览页用）
 function iconSVG(kind, size = 64) {
   const i = ICONS[kind] || ICONS[0];
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="${size}" height="${size}">${i.svg}</svg>`;
+  const s = Number(size) || 64; // 只接受数字，避免把任意字符串拼进属性
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="${s}" height="${s}">${i.svg}</svg>`;
 }
 return { ICONS, iconSymbolsSVG, iconSVG };
 })();
@@ -2684,6 +2688,7 @@ const STROKES = {
 };
 
 // 四个字的颜色、旋转角和位置（上下略有错落）
+// x 故意不是 0/100/200/300：两端的字带旋转，26 宽的外描边会被 viewBox 裁掉，所以首尾各向内收 2~4
 const CHARS = [
   { ch: '狗', color: '#FF8A1F', rot: -6, x: 2, y: 16 },
   { ch: '了', color: '#43A047', rot: 4, x: 100, y: 9 },
@@ -2818,9 +2823,10 @@ async function renderShareCard(info) {
 
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
   if (!blob) throw new Error('战绩图导出失败');
-  return { blob, url: URL.createObjectURL(blob) };
+  return { blob, url: URL.createObjectURL(blob), canvas };
 }
 
+// 返回 'saved' | 'declined' | 'unavailable' | 'failed' | 'shared' | 'downloaded'
 async function saveCard(blob, platform) {
   const filename = `狗了个狗战绩-${Date.now()}.png`;
   if (platform.downloads) {
@@ -2828,7 +2834,10 @@ async function saveCard(blob, platform) {
       await platform.downloads.save({ filename, data: blob });
       return 'saved';
     } catch (e) {
-      return e && e.code === 'declined' ? 'declined' : 'failed';
+      const code = e && e.code;
+      if (code === 'declined') return 'declined';
+      // 当前页面用不了保存能力：返回 unavailable，由调用方隐藏按钮
+      return ['unavailable', 'not_granted', 'capability_disabled', 'capability_removed', 'extension_not_enabled'].includes(code) ? 'unavailable' : 'failed';
     }
   }
   // Artifact 沙箱里 <a download> 与 Web Share 都不可用，只能让用户长按图片
@@ -2881,8 +2890,11 @@ function createBoard({ screen, stage, slotEl, playfield, onTap }) {
   let by = 0;
   let cells = [];
   let hinted = -1;
+  let epoch = 0; // 每次 mount/clear 加一；动画回调发现代号变了就退出，避免旧对局的收尾写进新对局
 
   const tf = (p) => `translate3d(${p.x}px, ${p.y}px, 0) scale(${p.s})`;
+  // 动画结束与超时二者先到为准：页面在后台或被节流时不渲染帧，finished 不会返回，逻辑不能因此卡住
+  const settle = (anim, ms) => Promise.race([anim.finished.catch(() => {}), new Promise((r) => setTimeout(r, ms + 150))]);
 
   // 鼠标/触屏在 pointerdown 就响应（更跟手）；键盘回车/空格产生的 click（detail === 0）另行处理
   playfield.addEventListener('pointerdown', (e) => {
@@ -2953,7 +2965,7 @@ function createBoard({ screen, stage, slotEl, playfield, onTap }) {
     const frames = lift
       ? [{ transform: tf(from) }, { transform: tf({ x: (from.x + p.x) / 2, y: Math.min(from.y, p.y) - lift, s: Math.max(from.s, p.s) * 1.1 }), offset: 0.45 }, { transform: tf(p) }]
       : [{ transform: tf(from) }, { transform: tf(p) }];
-    return el.animate(frames, { duration: ms, easing: 'cubic-bezier(.3,.7,.35,1)' }).finished.catch(() => {});
+    return settle(el.animate(frames, { duration: ms, easing: 'cubic-bezier(.3,.7,.35,1)' }), ms);
   }
 
   // 以牌中心为基准缩放（transform-origin 在左上角，需要补偿位移）
@@ -2964,16 +2976,20 @@ function createBoard({ screen, stage, slotEl, playfield, onTap }) {
   }
 
   function pop(id) {
+    const ep = epoch;
     const el = els[id];
     const p = pos.get(id);
     if (!el || !p) return Promise.resolve();
     const done = reduce
       ? Promise.resolve()
-      : el.animate(
+      : settle(el.animate(
         [{ transform: tf(p), opacity: 1 }, { transform: tf(around(p, 1.25)), opacity: 1, offset: 0.35 }, { transform: tf(around(p, 0.2)), opacity: 0 }],
         { duration: 220, easing: 'ease-in', fill: 'forwards' },
-      ).finished.catch(() => {});
-    return done.then(() => { el.remove(); els[id] = null; pos.delete(id); });
+      ), 220);
+    return done.then(() => {
+      el.remove();
+      if (ep === epoch) { els[id] = null; pos.delete(id); }
+    });
   }
 
   function setIcon(id, kind) {
@@ -2982,20 +2998,22 @@ function createBoard({ screen, stage, slotEl, playfield, onTap }) {
   }
 
   async function flip(changes) {
+    const ep = epoch;
     const ids = game.state.tiles.filter((t) => t.zone === 'board' && els[t.id]).map((t) => t.id);
     const squash = (p, k) => `${tf(p)} translate(${T / 2}px, 0) scaleX(${k}) translate(${-T / 2}px, 0)`;
     if (!reduce) {
-      await Promise.all(ids.map((id) => els[id].animate(
+      await Promise.all(ids.map((id) => settle(els[id].animate(
         [{ transform: tf(pos.get(id)) }, { transform: squash(pos.get(id), 0.05) }],
         { duration: 150, easing: 'ease-in', fill: 'forwards' },
-      ).finished.catch(() => {})));
+      ), 150)));
     }
+    if (ep !== epoch) return;
     for (const c of changes) setIcon(c.id, c.kind);
     if (!reduce) {
       await Promise.all(ids.map((id) => {
         const el = els[id];
         for (const a of el.getAnimations()) a.cancel();
-        return el.animate([{ transform: squash(pos.get(id), 0.05) }, { transform: tf(pos.get(id)) }], { duration: 170, easing: 'ease-out' }).finished.catch(() => {});
+        return settle(el.animate([{ transform: squash(pos.get(id), 0.05) }, { transform: tf(pos.get(id)) }], { duration: 170, easing: 'ease-out' }), 170);
       }));
     }
   }
@@ -3016,6 +3034,7 @@ function createBoard({ screen, stage, slotEl, playfield, onTap }) {
   }
 
   function mount(g) {
+    epoch++;
     game = g;
     const st = g.state;
     playfield.textContent = '';
@@ -3051,6 +3070,8 @@ function createBoard({ screen, stage, slotEl, playfield, onTap }) {
   }
 
   async function play(events, hooks = {}) {
+    const ep = epoch;
+    const stale = () => ep !== epoch;
     for (const ev of events) {
       if (ev.type === 'pick') {
         visualSlot.splice(ev.slotIndex, 0, ev.id);
@@ -3060,14 +3081,17 @@ function createBoard({ screen, stage, slotEl, playfield, onTap }) {
         const jobs = [move(ev.id, slotAt(ev.slotIndex), 200, T * 0.9)];
         visualSlot.forEach((id, i) => { if (id !== ev.id) jobs.push(move(id, slotAt(i), 150)); });
         await Promise.all(jobs);
+        if (stale()) return;
         el.classList.remove('is-flying');
         hooks.onLand?.(ev);
       } else if (ev.type === 'eliminate') {
         const cs = ev.ids.map(center);
         hooks.onEliminate?.(ev, { x: cs.reduce((a, c) => a + c.x, 0) / cs.length, y: cs.reduce((a, c) => a + c.y, 0) / cs.length });
         await Promise.all(ev.ids.map(pop));
+        if (stale()) return;
         visualSlot = visualSlot.filter((id) => !ev.ids.includes(id));
         await Promise.all(visualSlot.map((id, i) => move(id, slotAt(i), 150)));
+        if (stale()) return;
       } else if (ev.type === 'moveOut') {
         const moved = new Set(ev.moves.map((m) => m.id));
         visualSlot = visualSlot.filter((id) => !moved.has(id));
@@ -3076,12 +3100,15 @@ function createBoard({ screen, stage, slotEl, playfield, onTap }) {
           ...ev.moves.map((m) => move(m.id, bufPos(m.col, m.height), 280, T * 0.7)),
           ...visualSlot.map((id, i) => move(id, slotAt(i), 180)),
         ]);
+        if (stale()) return;
       } else if (ev.type === 'undo') {
         visualSlot = visualSlot.filter((id) => id !== ev.id);
         refresh();
         await Promise.all([move(ev.id, posOf(ev.id), 260, T * 0.8), ...visualSlot.map((id, i) => move(id, slotAt(i), 160))]);
+        if (stale()) return;
       } else if (ev.type === 'shuffle') {
         await flip(ev.changes);
+        if (stale()) return;
       }
     }
     refresh();
@@ -3115,6 +3142,7 @@ function createBoard({ screen, stage, slotEl, playfield, onTap }) {
   }
 
   function clear() {
+    epoch++;
     playfield.textContent = '';
     els = [];
     pos.clear();
@@ -3260,17 +3288,34 @@ function createScreens() {
     layer.hidden = false;
     const dismiss = () => { close(); onDismiss?.(); };
     layer.onclick = dismissible ? (e) => { if (e.target === layer) dismiss(); } : null;
-    layer.onkeydown = dismissible ? (e) => { if (e.key === 'Escape') dismiss(); } : null;
+    layer.onkeydown = (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        if (dismissible) dismiss();
+      } else if (e.key === 'Tab') {
+        trapFocus(e);
+      }
+    };
     modal.focus();
     return { body: b, buttons };
   }
+  // 焦点在弹层内循环，不跳到背后的牌上
+  function trapFocus(e) {
+    const items = [...modal.querySelectorAll('button:not([disabled]):not([hidden]), [href], [tabindex]:not([tabindex="-1"])')];
+    if (!items.length) { e.preventDefault(); modal.focus(); return; }
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (e.shiftKey && (document.activeElement === first || document.activeElement === modal)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+
   function close() {
     if (layer.hidden) return;
     layer.hidden = true;
     modal.textContent = '';
     layer.onclick = null;
     layer.onkeydown = null;
-    if (lastFocus && lastFocus.focus) lastFocus.focus();
+    if (lastFocus && lastFocus.isConnected && lastFocus.focus) lastFocus.focus();
   }
   const isOpen = () => !layer.hidden;
 
@@ -3414,12 +3459,16 @@ function createScreens() {
       ];
     return open({ title, body, actions, dismissible: false });
   }
-  function setCard(url) {
+  function setCard(url, fallback) {
     const wrap = $('card-wrap');
     if (!wrap) return;
     wrap.textContent = '';
     const img = new Image();
     img.alt = '本局战绩图';
+    img.onerror = () => {
+      img.onerror = () => cardFailed();
+      if (fallback) img.src = fallback(); else cardFailed();
+    };
     img.src = url;
     wrap.appendChild(img);
     const tip = $('card-tip');
@@ -3472,7 +3521,11 @@ const { createScreens } = __m_ui_screens_js;
 
 
 
-const COMBO_TEXT = ['', '', '汪汪！', '汪汪汪！', '狗王驾到！'];
+const COMBO_TEXT = ['', '汪！', '汪汪！', '汪汪汪！', '狗王驾到！'];
+// 每日种子带版本号：以后若改动生成器/机器人/布局，把 v1 升级为 v2，避免同一天的关卡被悄悄改掉
+const dailySeed = (day) => `dog-v1-${day}`;
+// 这些错误码表示当前页面用不了某个平台能力：隐藏对应按钮，不再重试
+const GONE_CODES = new Set(['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed', 'unavailable']);
 const TEAM = Object.fromEntries(BREEDS.map((b) => [b.key, b]));
 const $ = (id) => document.getElementById(id);
 
@@ -3483,6 +3536,7 @@ function localStorageOrNull() {
 function boot(hot) {
   const store = createStore(localStorageOrNull());
   const save = store.data;
+  if (save.team && !TEAM[save.team]) save.team = null;
   const today = dateKey();
   const params = new URLSearchParams(globalThis.location ? globalThis.location.search : '');
   const audio = createAudio();
@@ -3506,6 +3560,7 @@ function boot(hot) {
 
   const vibrate = (pattern) => {
     if (!save.settings.vibrate || !navigator.vibrate) return;
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
     try { navigator.vibrate(pattern); } catch { /* 不支持震动 */ }
   };
   const playing = () => !!s && s.game.state.status === 'playing';
@@ -3535,7 +3590,12 @@ function boot(hot) {
     });
   }
 
+  function stopRoast() {
+    if (roastCtl) { roastCtl.abort(); roastCtl = null; }
+  }
+
   function goHome() {
+    stopRoast();
     pauseClock();
     s = null;
     board.clear();
@@ -3560,9 +3620,14 @@ function boot(hot) {
   }
 
   function startLevel(key, seedStr, mode, actions = null) {
+    stopRoast();
     const level = generateLevel(key, seedStr);
-    const game = createGame(level);
-    if (actions && !game.replay(actions)) console.warn('续玩回放中途失败，保留已回放的部分');
+    let game = createGame(level);
+    if (actions && (!game.replay(actions) || game.state.status !== 'playing')) {
+      console.warn('续玩回放失败或对局已结束，从头开始');
+      game = createGame(level);
+      actions = null;
+    }
     s = { game, key, seedStr, mode, elapsed: 0, since: performance.now(), running: true, busy: false, queue: [], warned: false };
     ui.close();
     ui.show('game');
@@ -3572,7 +3637,7 @@ function boot(hot) {
     ui.slotDanger(false);
     audio.setTension(0);
     updateHud();
-    store.recordPlay();
+    if (!actions) store.recordPlay();
     syncPresence();
     if (key === 'daily1' && !actions) {
       board.hint(level.solution[0]);
@@ -3613,19 +3678,22 @@ function boot(hot) {
   async function run(events) {
     const cur = s;
     cur.busy = true;
-    await board.play(events, {
-      onLand: () => audio.play('place'),
-      onEliminate: (ev, c) => {
-        audio.play('match', { combo: ev.combo });
-        if (ev.combo >= 2) audio.play('woof', { variant: ev.combo >= 3 ? 1 : 0 });
-        vibrate([15, 30, 15]);
-        fx.burst(c.x, c.y, ICONS[ev.kind].color);
-        if (ev.combo >= 2) ui.combo(COMBO_TEXT[Math.min(ev.combo, 4)], c.x, c.y - 24);
-        ui.flashMood('happy', 900);
-      },
-    });
+    try {
+      await board.play(events, {
+        onLand: () => audio.play('place'),
+        onEliminate: (ev, c) => {
+          audio.play('match', { combo: ev.combo });
+          if (ev.combo >= 2) audio.play('woof', { variant: ev.combo >= 3 ? 1 : 0 });
+          vibrate([15, 30, 15]);
+          fx.burst(c.x, c.y, ICONS[ev.kind].color);
+          ui.combo(COMBO_TEXT[Math.min(ev.combo, 4)], c.x, c.y - 24);
+          ui.flashMood('happy', 900);
+        },
+      });
+    } finally {
+      cur.busy = false;
+    }
     if (s !== cur) return;
-    cur.busy = false;
     afterAction(events);
     while (s === cur && playing() && !cur.busy && cur.queue.length && !ui.isOpen()) pick(cur.queue.shift());
   }
@@ -3647,6 +3715,7 @@ function boot(hot) {
         ui.setBaseMood('idle');
       }
     }
+    if (st.status !== 'playing') s.queue.length = 0;
     if (events.some((e) => e.type === 'win')) onWin();
     else if (events.some((e) => e.type === 'lose')) onLose();
   }
@@ -3660,7 +3729,7 @@ function boot(hot) {
       audio.play('deny');
       const st = g.state;
       const why = st.props[name] <= 0 ? '这个道具用完啦'
-        : name === 'undo' ? (st.slot.length ? '刚消除完，撤回不了哦' : '卡槽是空的，没得撤回')
+        : name === 'undo' ? (st.slot.length ? '只能撤回刚放进卡槽的那一张' : '卡槽是空的，没得撤回')
           : name === 'moveOut' ? '卡槽是空的，不用移出' : '场上没有牌可洗了';
       ui.say(why, 1500);
       return;
@@ -3694,7 +3763,7 @@ function boot(hot) {
     ui.setBaseMood('cheer');
     ui.slotDanger(false);
     if (cur.mode === 'daily' && cur.key === 'daily1') {
-      setTimeout(() => { if (s === cur) ui.intro2(LEVELS.daily2, () => startLevel('daily2', `dog-${today}`, 'daily')); }, 700);
+      setTimeout(() => { if (s === cur) ui.intro2(LEVELS.daily2, () => startLevel('daily2', dailySeed(today), 'daily')); }, 700);
       return;
     }
     if (cur.mode === 'daily' && cur.key === 'daily2') broadcastWin(platform, save.team);
@@ -3715,6 +3784,7 @@ function boot(hot) {
 
   function showResult(info) {
     const cur = s;
+    if (card) URL.revokeObjectURL(card.url);
     card = null;
     const daily2Won = info.result === 'won' && info.key === 'daily2';
     ui.result(info, {
@@ -3740,19 +3810,22 @@ function boot(hot) {
         btn.disabled = true;
         const r = await saveCard(card.blob, platform);
         btn.disabled = false;
+        if (r === 'unavailable') btn.hidden = true;
         const tips = { saved: '战绩图已保存', downloaded: '战绩图已下载', shared: '已打开分享', declined: '已取消保存' };
-        ui.toast(tips[r] || '保存失败，可以长按图片保存');
+        ui.toast(tips[r] || '这里保存不了，可以长按图片保存');
       },
       onRoast: async (btn) => {
         btn.disabled = true;
         ui.roastText('狗子正在酝酿毒舌……');
-        if (roastCtl) roastCtl.abort();
-        roastCtl = new AbortController();
+        stopRoast();
+        const ctl = new AbortController();
+        roastCtl = ctl;
         try {
-          await aiRoast(platform, info, (text) => ui.roastText(text), roastCtl.signal);
+          await aiRoast(platform, info, (text) => { if (!ctl.signal.aborted) ui.roastText(text); }, ctl.signal);
         } catch (e) {
           const code = e && e.code;
-          if (code === 'not_granted' || code === 'sampling_disabled') {
+          if (ctl.signal.aborted) return;
+          if (GONE_CODES.has(code)) {
             ui.roastText('狗子这次不想说话（没有获得 AI 授权）');
             btn.hidden = true;
             return;
@@ -3762,11 +3835,16 @@ function boot(hot) {
         btn.disabled = false;
       },
     });
-    renderShareCard(info).then((c) => { card = c; ui.setCard(c.url); }).catch(() => ui.cardFailed());
+    renderShareCard(info).then((c) => {
+      if (s !== cur) { URL.revokeObjectURL(c.url); return; }
+      card = c;
+      ui.setCard(c.url, () => c.canvas.toDataURL('image/png'));
+    }).catch(() => ui.cardFailed());
   }
 
   function pause() {
-    if (!s || ui.isOpen()) return;
+    if (!playing() || ui.isOpen()) return;
+    s.queue.length = 0;
     pauseClock();
     ui.pause({
       settings: save.settings,
@@ -3810,7 +3888,7 @@ function boot(hot) {
 
   $('btn-daily').addEventListener('click', () => {
     audio.play('button');
-    startLevel(store.peekDay(today).l1 ? 'daily2' : 'daily1', `dog-${today}`, 'daily');
+    startLevel(store.peekDay(today).l1 ? 'daily2' : 'daily1', dailySeed(today), 'daily');
   });
   $('btn-practice').addEventListener('click', () => {
     audio.play('button');
@@ -3830,7 +3908,7 @@ function boot(hot) {
       state: () => (s ? s.game.state : null),
       actions: () => (s ? s.game.actions : []),
       solution: () => (s ? s.game.level.solution : null),
-      level: (key = 'daily1', seed = `dog-${today}`) => startLevel(key, seed, key.startsWith('daily') ? 'daily' : 'practice'),
+      level: (key = 'daily1', seed = dailySeed(today)) => startLevel(key, seed, key.startsWith('daily') ? 'daily' : 'practice'),
       step() {
         if (!playing() || ui.isOpen()) return false;
         const g = s.game;

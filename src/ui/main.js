@@ -12,7 +12,11 @@ import { renderShareCard, saveCard } from './share.js';
 import { createBoard } from './board.js';
 import { createScreens } from './screens.js';
 
-const COMBO_TEXT = ['', '', '汪汪！', '汪汪汪！', '狗王驾到！'];
+const COMBO_TEXT = ['', '汪！', '汪汪！', '汪汪汪！', '狗王驾到！'];
+// 每日种子带版本号：以后若改动生成器/机器人/布局，把 v1 升级为 v2，避免同一天的关卡被悄悄改掉
+const dailySeed = (day) => `dog-v1-${day}`;
+// 这些错误码表示当前页面用不了某个平台能力：隐藏对应按钮，不再重试
+const GONE_CODES = new Set(['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed', 'unavailable']);
 const TEAM = Object.fromEntries(BREEDS.map((b) => [b.key, b]));
 const $ = (id) => document.getElementById(id);
 
@@ -23,6 +27,7 @@ function localStorageOrNull() {
 function boot(hot) {
   const store = createStore(localStorageOrNull());
   const save = store.data;
+  if (save.team && !TEAM[save.team]) save.team = null;
   const today = dateKey();
   const params = new URLSearchParams(globalThis.location ? globalThis.location.search : '');
   const audio = createAudio();
@@ -46,6 +51,7 @@ function boot(hot) {
 
   const vibrate = (pattern) => {
     if (!save.settings.vibrate || !navigator.vibrate) return;
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
     try { navigator.vibrate(pattern); } catch { /* 不支持震动 */ }
   };
   const playing = () => !!s && s.game.state.status === 'playing';
@@ -75,7 +81,12 @@ function boot(hot) {
     });
   }
 
+  function stopRoast() {
+    if (roastCtl) { roastCtl.abort(); roastCtl = null; }
+  }
+
   function goHome() {
+    stopRoast();
     pauseClock();
     s = null;
     board.clear();
@@ -100,9 +111,14 @@ function boot(hot) {
   }
 
   function startLevel(key, seedStr, mode, actions = null) {
+    stopRoast();
     const level = generateLevel(key, seedStr);
-    const game = createGame(level);
-    if (actions && !game.replay(actions)) console.warn('续玩回放中途失败，保留已回放的部分');
+    let game = createGame(level);
+    if (actions && (!game.replay(actions) || game.state.status !== 'playing')) {
+      console.warn('续玩回放失败或对局已结束，从头开始');
+      game = createGame(level);
+      actions = null;
+    }
     s = { game, key, seedStr, mode, elapsed: 0, since: performance.now(), running: true, busy: false, queue: [], warned: false };
     ui.close();
     ui.show('game');
@@ -112,7 +128,7 @@ function boot(hot) {
     ui.slotDanger(false);
     audio.setTension(0);
     updateHud();
-    store.recordPlay();
+    if (!actions) store.recordPlay();
     syncPresence();
     if (key === 'daily1' && !actions) {
       board.hint(level.solution[0]);
@@ -153,19 +169,22 @@ function boot(hot) {
   async function run(events) {
     const cur = s;
     cur.busy = true;
-    await board.play(events, {
-      onLand: () => audio.play('place'),
-      onEliminate: (ev, c) => {
-        audio.play('match', { combo: ev.combo });
-        if (ev.combo >= 2) audio.play('woof', { variant: ev.combo >= 3 ? 1 : 0 });
-        vibrate([15, 30, 15]);
-        fx.burst(c.x, c.y, ICONS[ev.kind].color);
-        if (ev.combo >= 2) ui.combo(COMBO_TEXT[Math.min(ev.combo, 4)], c.x, c.y - 24);
-        ui.flashMood('happy', 900);
-      },
-    });
+    try {
+      await board.play(events, {
+        onLand: () => audio.play('place'),
+        onEliminate: (ev, c) => {
+          audio.play('match', { combo: ev.combo });
+          if (ev.combo >= 2) audio.play('woof', { variant: ev.combo >= 3 ? 1 : 0 });
+          vibrate([15, 30, 15]);
+          fx.burst(c.x, c.y, ICONS[ev.kind].color);
+          ui.combo(COMBO_TEXT[Math.min(ev.combo, 4)], c.x, c.y - 24);
+          ui.flashMood('happy', 900);
+        },
+      });
+    } finally {
+      cur.busy = false;
+    }
     if (s !== cur) return;
-    cur.busy = false;
     afterAction(events);
     while (s === cur && playing() && !cur.busy && cur.queue.length && !ui.isOpen()) pick(cur.queue.shift());
   }
@@ -187,6 +206,7 @@ function boot(hot) {
         ui.setBaseMood('idle');
       }
     }
+    if (st.status !== 'playing') s.queue.length = 0;
     if (events.some((e) => e.type === 'win')) onWin();
     else if (events.some((e) => e.type === 'lose')) onLose();
   }
@@ -200,7 +220,7 @@ function boot(hot) {
       audio.play('deny');
       const st = g.state;
       const why = st.props[name] <= 0 ? '这个道具用完啦'
-        : name === 'undo' ? (st.slot.length ? '刚消除完，撤回不了哦' : '卡槽是空的，没得撤回')
+        : name === 'undo' ? (st.slot.length ? '只能撤回刚放进卡槽的那一张' : '卡槽是空的，没得撤回')
           : name === 'moveOut' ? '卡槽是空的，不用移出' : '场上没有牌可洗了';
       ui.say(why, 1500);
       return;
@@ -234,7 +254,7 @@ function boot(hot) {
     ui.setBaseMood('cheer');
     ui.slotDanger(false);
     if (cur.mode === 'daily' && cur.key === 'daily1') {
-      setTimeout(() => { if (s === cur) ui.intro2(LEVELS.daily2, () => startLevel('daily2', `dog-${today}`, 'daily')); }, 700);
+      setTimeout(() => { if (s === cur) ui.intro2(LEVELS.daily2, () => startLevel('daily2', dailySeed(today), 'daily')); }, 700);
       return;
     }
     if (cur.mode === 'daily' && cur.key === 'daily2') broadcastWin(platform, save.team);
@@ -255,6 +275,7 @@ function boot(hot) {
 
   function showResult(info) {
     const cur = s;
+    if (card) URL.revokeObjectURL(card.url);
     card = null;
     const daily2Won = info.result === 'won' && info.key === 'daily2';
     ui.result(info, {
@@ -280,19 +301,22 @@ function boot(hot) {
         btn.disabled = true;
         const r = await saveCard(card.blob, platform);
         btn.disabled = false;
+        if (r === 'unavailable') btn.hidden = true;
         const tips = { saved: '战绩图已保存', downloaded: '战绩图已下载', shared: '已打开分享', declined: '已取消保存' };
-        ui.toast(tips[r] || '保存失败，可以长按图片保存');
+        ui.toast(tips[r] || '这里保存不了，可以长按图片保存');
       },
       onRoast: async (btn) => {
         btn.disabled = true;
         ui.roastText('狗子正在酝酿毒舌……');
-        if (roastCtl) roastCtl.abort();
-        roastCtl = new AbortController();
+        stopRoast();
+        const ctl = new AbortController();
+        roastCtl = ctl;
         try {
-          await aiRoast(platform, info, (text) => ui.roastText(text), roastCtl.signal);
+          await aiRoast(platform, info, (text) => { if (!ctl.signal.aborted) ui.roastText(text); }, ctl.signal);
         } catch (e) {
           const code = e && e.code;
-          if (code === 'not_granted' || code === 'sampling_disabled') {
+          if (ctl.signal.aborted) return;
+          if (GONE_CODES.has(code)) {
             ui.roastText('狗子这次不想说话（没有获得 AI 授权）');
             btn.hidden = true;
             return;
@@ -302,11 +326,16 @@ function boot(hot) {
         btn.disabled = false;
       },
     });
-    renderShareCard(info).then((c) => { card = c; ui.setCard(c.url); }).catch(() => ui.cardFailed());
+    renderShareCard(info).then((c) => {
+      if (s !== cur) { URL.revokeObjectURL(c.url); return; }
+      card = c;
+      ui.setCard(c.url, () => c.canvas.toDataURL('image/png'));
+    }).catch(() => ui.cardFailed());
   }
 
   function pause() {
-    if (!s || ui.isOpen()) return;
+    if (!playing() || ui.isOpen()) return;
+    s.queue.length = 0;
     pauseClock();
     ui.pause({
       settings: save.settings,
@@ -350,7 +379,7 @@ function boot(hot) {
 
   $('btn-daily').addEventListener('click', () => {
     audio.play('button');
-    startLevel(store.peekDay(today).l1 ? 'daily2' : 'daily1', `dog-${today}`, 'daily');
+    startLevel(store.peekDay(today).l1 ? 'daily2' : 'daily1', dailySeed(today), 'daily');
   });
   $('btn-practice').addEventListener('click', () => {
     audio.play('button');
@@ -370,7 +399,7 @@ function boot(hot) {
       state: () => (s ? s.game.state : null),
       actions: () => (s ? s.game.actions : []),
       solution: () => (s ? s.game.level.solution : null),
-      level: (key = 'daily1', seed = `dog-${today}`) => startLevel(key, seed, key.startsWith('daily') ? 'daily' : 'practice'),
+      level: (key = 'daily1', seed = dailySeed(today)) => startLevel(key, seed, key.startsWith('daily') ? 'daily' : 'practice'),
       step() {
         if (!playing() || ui.isOpen()) return false;
         const g = s.game;

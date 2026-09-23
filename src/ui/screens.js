@@ -126,17 +126,34 @@ export function createScreens() {
     layer.hidden = false;
     const dismiss = () => { close(); onDismiss?.(); };
     layer.onclick = dismissible ? (e) => { if (e.target === layer) dismiss(); } : null;
-    layer.onkeydown = dismissible ? (e) => { if (e.key === 'Escape') dismiss(); } : null;
+    layer.onkeydown = (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        if (dismissible) dismiss();
+      } else if (e.key === 'Tab') {
+        trapFocus(e);
+      }
+    };
     modal.focus();
     return { body: b, buttons };
   }
+  // 焦点在弹层内循环，不跳到背后的牌上
+  function trapFocus(e) {
+    const items = [...modal.querySelectorAll('button:not([disabled]):not([hidden]), [href], [tabindex]:not([tabindex="-1"])')];
+    if (!items.length) { e.preventDefault(); modal.focus(); return; }
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (e.shiftKey && (document.activeElement === first || document.activeElement === modal)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+
   function close() {
     if (layer.hidden) return;
     layer.hidden = true;
     modal.textContent = '';
     layer.onclick = null;
     layer.onkeydown = null;
-    if (lastFocus && lastFocus.focus) lastFocus.focus();
+    if (lastFocus && lastFocus.isConnected && lastFocus.focus) lastFocus.focus();
   }
   const isOpen = () => !layer.hidden;
 
@@ -280,12 +297,16 @@ export function createScreens() {
       ];
     return open({ title, body, actions, dismissible: false });
   }
-  function setCard(url) {
+  function setCard(url, fallback) {
     const wrap = $('card-wrap');
     if (!wrap) return;
     wrap.textContent = '';
     const img = new Image();
     img.alt = '本局战绩图';
+    img.onerror = () => {
+      img.onerror = () => cardFailed();
+      if (fallback) img.src = fallback(); else cardFailed();
+    };
     img.src = url;
     wrap.appendChild(img);
     const tip = $('card-tip');
