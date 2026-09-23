@@ -7,7 +7,11 @@
 ## 1. 目标与范围
 
 - 玩法与《羊了个羊》一致的三消堆叠游戏，题材换成狗：图案、吉祥物、文案、音效全部狗狗主题。
-- 交付物是一个**零外链的单文件** `dist/index.html`：同一个文件既发布为 Claude Artifact，也部署到 GitHub Pages。国内打开不依赖任何外部 CDN 或字体。
+- 交付物是**零外链的单文件**，同一套源码构建出两份产物：
+  - `dist/index.html`：完整的 HTML 文档，部署到 GitHub Pages，也可以丢到任意 CDN。
+  - `dist/artifact.html`：Artifact 页面片段，不带 doctype/html/head/body，由平台套上外壳后发布。
+
+  两份都不依赖任何外部 CDN 或字体，国内也能直接打开。
 - 手机竖屏优先，桌面端居中显示成手机比例。
 - 成功标准：
   - 今日挑战两关可以完整打通。
@@ -282,8 +286,10 @@
   - 把本局数据（关卡、结果、用时、步数、道具、剩余张数、阵营）连同指令一起发送：「用柴犬口吻、中文、两三句话、毒舌但友善地点评」。
   - 用 `onText` 流式显示在吉祥物气泡里。
   - 遇到 `not_granted` 就隐藏按钮；遇到 `rate_limited` 就提示稍后再试；不做循环重试。
-- **downloads**：用来保存战绩图 PNG。
+- **downloads**：用来保存战绩图 PNG。Artifact 的沙箱会拦截 `<a download>` 和 Web Share，所以在 claude.ai 里只走 `downloads.save`。
   - 在普通网页里，先尝试 `navigator.share`（带图片文件），失败就退回到 `<a download>` 下载。
+  - 两种环境下，都在弹层里直接展示战绩图，手机用户可以长按保存。
+- **热更新续玩**：如果存在 `window.claude.hot`，就注册快照 `{screen, levelKey, seedStr, actions}`。页面重新发布之后，用同一种子加上动作日志回放恢复对局，所以洗牌的随机数也要由「种子 + 洗牌次数」决定。
 - 页面上不展示任何编造的全网统计数据。
 
 ## 9. 工程结构
@@ -364,7 +370,7 @@ gou-le-ge-gou/
   并把 `import { a } from './x.js'` 改写成 `const { a } = __m_x;`。代码风格因此约定为：
   - 所有 import 写在文件顶部，并且只用具名导入。
   - 导出只用 `export function`、`export const`、`export class` 这三种形式。
-- CSS 和 JS 内联进 `src/index.html`，输出到 `dist/index.html`。构建完成后，校验产物里没有 `http(s)://` 形式的外部资源引用。
+- CSS 和 JS 内联进 `src/index.html`，同时输出两份：`dist/index.html` 是完整文档，自带 viewport-fit=cover 和安全区 padding；`dist/artifact.html` 是去掉外壳的片段，以 `<title>` 开头。构建完成后，校验两份产物里都没有外部资源引用：`src`/`href`/`url()`/`@import` 都不能指向 http(s)。
 - 单元测试直接从 `src` 里 import ES 模块，所以测试时不需要先构建。
 
 ### 9.4 调试接口
@@ -402,8 +408,8 @@ gou-le-ge-gou/
 
 ## 11. 发布
 
-1. 用 `npm run build` 生成 `dist/index.html`。
-2. 发布为 Claude Artifact，按第 8 节声明能力，icon 用 `game`。
+1. 用 `npm run build` 生成 `dist/index.html` 和 `dist/artifact.html`。
+2. 把 `dist/artifact.html` 发布为 Claude Artifact，按第 8 节声明能力，icon 用 `game`。
 3. 创建 GitHub 公开仓库 `Kline-x/gou-le-ge-gou`：
    - 源码推到 `main` 分支。
    - `dist/index.html` 推到孤儿分支 `gh-pages` 的根目录。

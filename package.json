@@ -1,0 +1,14 @@
+{
+  "name": "gou-le-ge-gou",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "狗了个狗：狗狗主题的三消堆叠小游戏",
+  "scripts": {
+    "test": "node --test \"tests/*.test.mjs\"",
+    "build": "node build.mjs",
+    "balance": "node tools/balance.mjs",
+    "serve": "node tools/serve.mjs"
+  },
+  "engines": { "node": ">=18" }
+}
