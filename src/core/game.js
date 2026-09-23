@@ -32,7 +32,8 @@ export function createGame(level) {
     return false;
   };
   const freeIds = () => tiles.filter((t) => isFree(t.id)).map((t) => t.id);
-  const blocking = (id) => covers[id].filter((j) => tiles[j].zone === 'board').length;
+  // 拿走这张后能直接减少多少张场上牌的遮挡；不在场上的牌不遮挡任何牌
+  const blocking = (id) => (tiles[id] && tiles[id].zone === 'board' ? covers[id].filter((j) => tiles[j].zone === 'board').length : 0);
 
   function pick(id) {
     if (status !== 'playing' || !isFree(id)) return null;
@@ -91,6 +92,7 @@ export function createGame(level) {
     props.undo--; used.undo++;
     const { id, from } = lastPick;
     lastPick = null;
+    moves--;
     slot.splice(slot.indexOf(id), 1);
     const t = tiles[id];
     if (from.zone === 'board') {
@@ -162,6 +164,7 @@ export function createGame(level) {
 
   return {
     level,
+    // 注意：tiles 是引擎内部数组的活引用（只读约定，调用方不得修改）；slot/buffer/props/used 为副本
     get state() {
       return { tiles, slot: slot.slice(), buffer: buffer.map((c) => c.slice()), props: { ...props }, used: { ...used }, status, moves, combo, remaining };
     },

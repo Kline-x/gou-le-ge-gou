@@ -1,4 +1,5 @@
 // 贪心机器人：只看空闲牌与卡槽（不偷看被压住的图案），用于平衡模拟与调试自动玩
+// 注意：generator.js 用它评估候选关卡的难度，改动打分会改变每日关卡的内容（tests/generator.test.mjs 的金样指纹会失败，需同时重跑平衡并更新指纹）
 import { SLOT_SIZE } from './game.js';
 
 export function bestMove(game) {

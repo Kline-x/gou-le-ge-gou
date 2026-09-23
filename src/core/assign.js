@@ -7,6 +7,7 @@ function tryAssign({ n, coveredBy, quota, kOpen, pContinue, pDig = 0, rng, initi
   coveredBy.forEach((arr, i) => arr.forEach((j) => covers[j].push(i)));
   const free = [];
   for (let i = 0; i < n; i++) if (blockers[i] === 0) free.push(i);
+  rng.shuffle(free); // 打乱初始顺序，否则 pDig 会系统性地先挖下标靠后的右侧盲盒堆
   const remaining = new Map(quota);
   const open = new Map();
   let occupancy = 0;

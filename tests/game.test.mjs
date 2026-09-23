@@ -160,3 +160,37 @@ test('按生成器的解路径能不用道具通关', () => {
     }
   }
 });
+
+test('原味地狱的洗牌纯随机（不走有解分配）', () => {
+  const level = generateLevel('hell', 'shuffle');
+  const g = createGame(level);
+  const ev = g.shuffle();
+  assert.equal(ev[0].solvable, false);
+});
+
+test('新开局与移出之后都不能撤回', () => {
+  const g = createGame(mk([{ kind: 0 }, { kind: 1 }]));
+  assert.equal(g.canUndo(), false);
+  g.pick(0);
+  g.moveOut();
+  assert.equal(g.canUndo(), false);
+});
+
+test('撤回会回退步数，连消窗口不把撤回过的拿牌算进去', () => {
+  const g = createGame(mk([{ kind: 0 }, { kind: 0 }, { kind: 0 }, { kind: 9 }, { kind: 1 }, { kind: 1 }, { kind: 1 }]));
+  g.pick(0); g.pick(1); g.pick(2);
+  g.pick(3);
+  g.undo();
+  assert.equal(g.state.moves, 3);
+  g.pick(4); g.pick(5);
+  assert.equal(g.pick(6)[1].combo, 2);
+});
+
+test('blocking：不在场上的牌不遮挡任何牌', () => {
+  const g = createGame(mk([{ x: 0, y: 0, z: 0, kind: 0 }, { x: 0.5, y: 0, z: 1, kind: 1 }, { kind: 2 }]));
+  assert.equal(g.blocking(1), 1);
+  g.pick(1);
+  assert.equal(g.blocking(1), 0);
+  g.moveOut();
+  assert.equal(g.blocking(1), 0);
+});

@@ -65,7 +65,8 @@
 | `tools/extract-plan.mjs` | 把计划里带 `file=` 标注的代码块写成文件 |
 | `src/core/rng.js` | `hashSeed`、`createRng`（mulberry32） |
 | `src/core/layout.js` | `buildLayout`（分层图案、对称、配平张数、盲盒堆）、`computeCovers` |
-| `src/core/generator.js` | `LEVELS`、`generateLevel`、`assignKinds`（模拟拿牌路径，保证有解） |
+| `src/core/assign.js` | `assignKinds`：模拟拿牌路径分配图案，保证有解；pDig 控制往下挖（执行中从 generator 拆出，避免与 game 循环依赖） |
+| `src/core/generator.js` | `LEVELS`、`generateLevel`：多个有解候选里挑机器人最难打的一个 |
 | `src/core/game.js` | `createGame`：拿牌、卡槽、消除、胜负、道具、复活、动作日志、回放 |
 | `src/core/bot.js` | `greedyMove`、`playOut`，用于平衡模拟和调试自动玩 |
 | `tools/balance.mjs` | 各难度通关率模拟 |
@@ -1889,3 +1890,2531 @@ git commit -m "feat: 贪心机器人与难度平衡校准"
 ```
 
 ---
+
+### Task 9: 构建脚本（单文件双产物）
+
+**Files:**
+- Create: `build.mjs`
+- Test: `tests/build.test.mjs`
+
+**Interfaces:**
+- Produces:
+  - `bundleModules(srcDir, entryRel): string`：把入口及其依赖包成一个个闭包，按依赖先后排列。遇到循环依赖、不支持的 import/export 写法时抛错。
+  - `assemblePages({ tpl, css, js }): { standalone, fragment }`
+    - 模板用 `<!--@BODY-->` 把内容分成 head 片段和 body 片段，并用 `/*@CSS*/`、`/*@JS*/` 标出注入位置。
+    - `fragment` 以 `<title>` 开头。
+    - `standalone` 是完整文档：自带 viewport-fit=cover、安全区 padding 和 favicon。
+  - `assertNoExternal(html, label)`：`src`、`href`、`url()` 指向 http(s)，或者出现 `@import` 时，都会抛错。
+  - 直接运行 `node build.mjs` 时写出 `dist/index.html` 和 `dist/artifact.html`，并打印两份文件的大小。
+
+- [ ] **Step 1: 写失败的测试**
+
+```js file=tests/build.test.mjs
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import vm from 'node:vm';
+import { bundleModules, assemblePages, assertNoExternal } from '../build.mjs';
+
+function fixture(files) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'glgg-'));
+  for (const [rel, code] of Object.entries(files)) {
+    const p = path.join(dir, rel);
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, code);
+  }
+  return dir;
+}
+
+test('按依赖顺序打包，具名导入导出正确', () => {
+  const dir = fixture({
+    'core/a.js': 'export const A = 2;\nexport function double(x) { return x * A; }\n',
+    'core/b.js': "import { double } from './a.js';\nexport class Box { constructor(v) { this.v = double(v); } }\n",
+    'ui/main.js': "import { Box } from '../core/b.js';\nimport { A } from '../core/a.js';\nglobalThis.result = new Box(5).v + A;\n",
+  });
+  const js = bundleModules(dir, 'ui/main.js');
+  const ctx = {};
+  vm.runInNewContext(js, ctx);
+  assert.equal(ctx.result, 12);
+  assert.ok(js.indexOf('__m_core_a_js =') < js.indexOf('__m_core_b_js ='));
+  assert.ok(js.indexOf('__m_core_b_js =') < js.indexOf('__m_ui_main_js ='));
+});
+
+test('循环依赖与不支持的写法会报错', () => {
+  const cyc = fixture({
+    'a.js': "import { b } from './b.js';\nexport const a = 1;\n",
+    'b.js': "import { a } from './a.js';\nexport const b = 2;\n",
+  });
+  assert.throws(() => bundleModules(cyc, 'a.js'), /循环依赖/);
+  const def = fixture({ 'main.js': 'export default 1;\n' });
+  assert.throws(() => bundleModules(def, 'main.js'), /只支持/);
+  const star = fixture({ 'main.js': "import * as x from './x.js';\n" });
+  assert.throws(() => bundleModules(star, 'main.js'), /只支持/);
+});
+
+test('组装两份页面', () => {
+  const tpl = '<title>狗了个狗</title>\n<style>/*@CSS*/</style>\n<!--@BODY-->\n<div id="app"></div>\n<script>/*@JS*/</script>\n';
+  const { standalone, fragment } = assemblePages({ tpl, css: 'body{color:red}', js: 'globalThis.x = "$&";' });
+  assert.ok(fragment.startsWith('<title>狗了个狗</title>'));
+  assert.ok(!/<!doctype|<html|<head|<body/i.test(fragment));
+  assert.ok(fragment.includes('body{color:red}') && fragment.includes('globalThis.x = "$&";'));
+  assert.ok(standalone.startsWith('<!doctype html>'));
+  assert.ok(standalone.includes('viewport-fit=cover'));
+  const head = standalone.slice(0, standalone.indexOf('</head>'));
+  assert.ok(head.includes('<title>狗了个狗</title>'), 'title 必须位于 head');
+  assert.ok(standalone.indexOf('<div id="app">') > standalone.indexOf('<body>'));
+});
+
+test('零外链校验', () => {
+  assert.throws(() => assertNoExternal('<script src="https://x.com/a.js"></script>', 't'), /外部资源/);
+  assert.throws(() => assertNoExternal('<style>a{background:url(https://x.com/a.png)}</style>', 't'), /外部资源/);
+  assert.throws(() => assertNoExternal("<style>@import 'x.css';</style>", 't'), /外部资源/);
+  assert.doesNotThrow(() => assertNoExternal('<svg xmlns="http://www.w3.org/2000/svg"></svg><a href="#x">x</a><i style="background:url(data:image/svg+xml,abc)"></i>', 't'));
+});
+```
+
+- [ ] **Step 2: 运行测试，确认失败**
+
+Run: `node --test tests/build.test.mjs`
+Expected: FAIL（Cannot find module '../build.mjs'）
+
+- [ ] **Step 3: 实现**
+
+```js file=build.mjs
+// 构建：把 src 下的 ES 模块按依赖顺序包进闭包，内联 CSS/JS，输出完整文档与 Artifact 片段两份产物
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.dirname(fileURLToPath(import.meta.url));
+const SRC = path.join(ROOT, 'src');
+const DIST = path.join(ROOT, 'dist');
+const FAVICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cg fill='%23E8913A' stroke='%233B2A1A' stroke-width='3'%3E%3Cellipse cx='32' cy='42' rx='14' ry='12'/%3E%3Ccircle cx='15' cy='26' r='6'/%3E%3Ccircle cx='25' cy='15' r='6'/%3E%3Ccircle cx='39' cy='15' r='6'/%3E%3Ccircle cx='49' cy='26' r='6'/%3E%3C/g%3E%3C/svg%3E";
+
+const ident = (rel) => `__m_${rel.replace(/[^\w]/g, '_')}`;
+
+function parseModule(srcDir, rel) {
+  const code = fs.readFileSync(path.join(srcDir, rel), 'utf8');
+  const imports = [];
+  let body = code.replace(/^import\s*\{([^}]*)\}\s*from\s*'([^']+)';[ \t]*$/gm, (_, names, from) => {
+    const dep = path.posix.normalize(path.posix.join(path.posix.dirname(rel), from));
+    imports.push({ dep, names: names.split(',').map((s) => s.trim().replace(/\s+as\s+/, ': ')).filter(Boolean) });
+    return '';
+  });
+  if (/^\s*import[\s*{'"]/m.test(body)) throw new Error(`${rel}：只支持文件顶部的具名 import`);
+  const exports = [];
+  body = body.replace(/^export\s+(async\s+function|function|const|let|class)\s+([A-Za-z_$][\w$]*)/gm, (_, kw, name) => {
+    exports.push(name);
+    return `${kw} ${name}`;
+  });
+  if (/^\s*export\s/m.test(body)) throw new Error(`${rel}：只支持 export function / const / class`);
+  return { rel, imports, exports, body };
+}
+
+export function bundleModules(srcDir, entryRel) {
+  const done = new Map();
+  const visit = (rel, stack) => {
+    if (done.has(rel)) return;
+    if (stack.includes(rel)) throw new Error(`循环依赖：${[...stack, rel].join(' → ')}`);
+    const mod = parseModule(srcDir, rel);
+    for (const imp of mod.imports) visit(imp.dep, [...stack, rel]);
+    done.set(rel, mod);
+  };
+  visit(entryRel, []);
+  let js = '';
+  for (const m of done.values()) {
+    const head = m.imports.map((i) => `const { ${i.names.join(', ')} } = ${ident(i.dep)};`).join('\n');
+    js += `// ---- ${m.rel} ----\nconst ${ident(m.rel)} = (() => {\n${head}\n${m.body.trim()}\nreturn { ${m.exports.join(', ')} };\n})();\n`;
+  }
+  return js;
+}
+
+export function assemblePages({ tpl, css, js }) {
+  const parts = tpl.split('<!--@BODY-->');
+  if (parts.length !== 2) throw new Error('模板缺少 <!--@BODY--> 分隔');
+  if (/<\/script/i.test(js)) throw new Error('脚本中不得出现 </script');
+  const script = `(() => {\n'use strict';\n${js}\n})();`;
+  const fill = (s) => s.replace('/*@CSS*/', () => css).replace('/*@JS*/', () => script).trim();
+  const head = fill(parts[0]);
+  const body = fill(parts[1]);
+  const fragment = `${head}\n${body}\n`;
+  const standalone = [
+    '<!doctype html>',
+    '<html lang="zh-CN">',
+    '<head>',
+    '<meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
+    '<meta name="description" content="狗了个狗：狗狗主题的三消堆叠小游戏，每天一关，看你能不能通关。">',
+    '<meta name="theme-color" content="#9ed36a">',
+    `<link rel="icon" href="${FAVICON}">`,
+    '<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>',
+    head,
+    '</head>',
+    '<body>',
+    body,
+    '</body>',
+    '</html>',
+    '',
+  ].join('\n');
+  return { standalone, fragment };
+}
+
+export function assertNoExternal(html, label) {
+  const bad = html.match(/(?:src|href)\s*=\s*["']?https?:|url\(\s*["']?https?:|@import/gi);
+  if (bad) throw new Error(`${label} 含外部资源引用：${bad.slice(0, 3).join(' | ')}`);
+}
+
+function main() {
+  const js = bundleModules(SRC, 'ui/main.js');
+  const css = fs.readFileSync(path.join(SRC, 'styles.css'), 'utf8');
+  const tpl = fs.readFileSync(path.join(SRC, 'index.html'), 'utf8');
+  const { standalone, fragment } = assemblePages({ tpl, css, js });
+  assertNoExternal(standalone, 'dist/index.html');
+  assertNoExternal(fragment, 'dist/artifact.html');
+  fs.mkdirSync(DIST, { recursive: true });
+  fs.writeFileSync(path.join(DIST, 'index.html'), standalone);
+  fs.writeFileSync(path.join(DIST, 'artifact.html'), fragment);
+  const kb = (s) => `${(Buffer.byteLength(s) / 1024).toFixed(1)} KB`;
+  console.log(`dist/index.html ${kb(standalone)}，dist/artifact.html ${kb(fragment)}`);
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
+```
+
+- [ ] **Step 4: 运行测试，确认通过**
+
+Run: `node --test tests/build.test.mjs`
+Expected: PASS（4 个测试）
+
+- [ ] **Step 5: 提交**
+
+```bash
+git add build.mjs tests/build.test.mjs
+git commit -m "feat: 单文件双产物构建脚本与零外链校验"
+```
+
+---
+
+### Task 10: 页面骨架与样式
+
+**Files:**
+- Create: `src/index.html`
+- Create: `src/styles.css`
+
+**Interfaces:**
+- Produces（后续 UI 模块依赖的 DOM id 和 class）：
+  - 首页相关 id：
+    - `home`、`btn-settings`、`btn-help`
+    - `online`、`online-count`
+    - `logo`、`hero-dog`、`hero-line`
+    - `btn-daily`、`daily-sub`、`btn-practice`、`btn-pack`
+    - `team-chip`、`streak`
+  - 对局相关 id：
+    - `game`、`btn-pause`、`level-name`、`tiles-left`
+    - `stage`、`slot`（含 7 个 `.slot-cell`）
+    - `mascot`、`mascot-face`、`bubble`
+    - `prop-moveOut`、`prop-undo`、`prop-shuffle`
+    - `badge-moveOut`、`badge-undo`、`badge-shuffle`
+    - `playfield`
+  - 公共层 id：`modal-layer`、`modal`、`fx`、`toasts`、`app`
+  - 牌元素：`button.tile[data-id]`，里面是 `span.tile-face > svg > use`。状态 class 有 `is-covered`、`is-free`、`is-slot`、`is-flying`、`is-hint`。牌边长由 playfield 上的 CSS 变量 `--t` 提供。
+  - 卡槽：`.slot` 的宽度由 CSS 变量 `--slot-w` 控制；危险状态 class 为 `.slot.is-danger`。
+  - 道具按钮：`.prop.is-empty` 表示已用完，`.prop.is-idle` 表示暂时不可用。
+
+- [ ] **Step 1: 写模板**
+
+```html file=src/index.html
+<title>狗了个狗</title>
+<style>/*@CSS*/</style>
+<!--@BODY-->
+<div class="app" id="app">
+  <section class="screen home" id="home" aria-label="首页">
+    <header class="home-top">
+      <button class="icon-btn" id="btn-settings" type="button" aria-label="设置">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Zm8.4 2-1.9-.4a7 7 0 0 0-.6-1.5l1.1-1.6-1.9-1.9-1.6 1.1a7 7 0 0 0-1.5-.6l-.4-1.9h-2.7l-.4 1.9a7 7 0 0 0-1.5.6L5.3 5.2 3.4 7.1l1.1 1.6a7 7 0 0 0-.6 1.5l-1.9.4v2.7l1.9.4c.1.5.3 1 .6 1.5l-1.1 1.6 1.9 1.9 1.6-1.1c.5.3 1 .5 1.5.6l.4 1.9h2.7l.4-1.9c.5-.1 1-.3 1.5-.6l1.6 1.1 1.9-1.9-1.1-1.6c.3-.5.5-1 .6-1.5l1.9-.4v-2.7Z"/></svg>
+      </button>
+      <div class="online" id="online" hidden><i class="online-dot" aria-hidden="true"></i>在线狗友 <b id="online-count">1</b></div>
+      <button class="icon-btn" id="btn-help" type="button" aria-label="玩法说明"><b aria-hidden="true">?</b></button>
+    </header>
+    <h1 class="logo" id="logo"><span class="sr-only">狗了个狗</span></h1>
+    <div class="hero">
+      <div class="hero-dog" id="hero-dog" aria-hidden="true"></div>
+      <p class="hero-line" id="hero-line">今天也要汪汪通关</p>
+    </div>
+    <nav class="home-actions" aria-label="开始游戏">
+      <button class="btn btn-go btn-big" id="btn-daily" type="button"><span class="btn-title">今日挑战</span><span class="btn-sub" id="daily-sub">第 1 关 · 热身</span></button>
+      <div class="home-row">
+        <button class="btn btn-soft" id="btn-practice" type="button">自由练习</button>
+        <button class="btn btn-soft" id="btn-pack" type="button">我的狗群</button>
+      </div>
+    </nav>
+    <footer class="home-foot"><span class="team-chip" id="team-chip"></span><span class="streak" id="streak"></span></footer>
+  </section>
+
+  <section class="screen game" id="game" aria-label="对局" hidden>
+    <header class="bar">
+      <button class="icon-btn" id="btn-pause" type="button" aria-label="暂停">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>
+      </button>
+      <div class="bar-title" id="level-name">第 1 关</div>
+      <div class="bar-left">剩 <b id="tiles-left">0</b> 张</div>
+    </header>
+    <div class="stage" id="stage"></div>
+    <div class="slot" id="slot" role="list" aria-label="卡槽，最多 7 张">
+      <i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i><i class="slot-cell"></i>
+    </div>
+    <div class="dock">
+      <div class="mascot" id="mascot"><div class="bubble" id="bubble" role="status" hidden></div><div class="mascot-face" id="mascot-face"></div></div>
+      <div class="props">
+        <button class="prop" id="prop-moveOut" type="button" data-prop="moveOut"><span class="prop-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 20h14M12 16V4M7 9l5-5 5 5"/></svg></span><span class="prop-name">移出</span><i class="badge" id="badge-moveOut">1</i></button>
+        <button class="prop" id="prop-undo" type="button" data-prop="undo"><span class="prop-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></span><span class="prop-name">撤回</span><i class="badge" id="badge-undo">1</i></button>
+        <button class="prop" id="prop-shuffle" type="button" data-prop="shuffle"><span class="prop-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h4l10 10h4M3 17h4L17 7h4M18 4l3 3-3 3M18 14l3 3-3 3"/></svg></span><span class="prop-name">洗牌</span><i class="badge" id="badge-shuffle">1</i></button>
+      </div>
+    </div>
+    <div class="playfield" id="playfield"></div>
+  </section>
+
+  <div class="modal-layer" id="modal-layer" hidden>
+    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1"></div>
+  </div>
+  <canvas class="fx" id="fx" aria-hidden="true"></canvas>
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+</div>
+<script>/*@JS*/</script>
+```
+
+- [ ] **Step 2: 写样式**
+
+```css file=src/styles.css
+/* ===== 设计令牌：白天草坪（浅色，完整定义） ===== */
+:root {
+  --font: "PingFang SC", "HarmonyOS Sans SC", "MiSans", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", system-ui, sans-serif;
+  --bg: #9ed36a;
+  --grass-a: #a5d66f;
+  --grass-b: #98ce62;
+  --on-grass: #2f5d1e;
+  --ink: #3b2a1a;
+  --panel: #fffbf0;
+  --panel-2: #fff1d6;
+  --panel-text: #3b2a1a;
+  --panel-soft: #7a5a34;
+  --tile-face: #fffbf0;
+  --tile-side: #e2b878;
+  --tile-edge: #7a5a34;
+  --tile-shade: rgba(30, 43, 18, .48);
+  --wood: #8d5a2e;
+  --wood-edge: #5b3718;
+  --cell: #6b4220;
+  --wood-text: #fff3df;
+  --go: #ff8a1f;
+  --go-edge: #a94d00;
+  --go-text: #ffffff;
+  --soft: #ffffff;
+  --soft-text: #2f5d1e;
+  --prop: #45b7f0;
+  --prop-edge: #0b5c8e;
+  --badge: #ff5252;
+  --danger: #e53935;
+  --bubble: #ffffff;
+  --bubble-text: #5a3413;
+  --scrim: rgba(22, 34, 12, .55);
+  --hint: #ffd43b;
+  --moon: 0;
+  color-scheme: light;
+}
+
+/* ===== 夜晚后院（深色）：跟随系统；显式浅色时不生效 ===== */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1e3321;
+    --grass-a: #223b22;
+    --grass-b: #1d341e;
+    --on-grass: #d8ecc4;
+    --ink: #140d06;
+    --panel: #2d261e;
+    --panel-2: #3a3027;
+    --panel-text: #f6ead6;
+    --panel-soft: #cdb896;
+    --tile-face: #f2e8d2;
+    --tile-side: #b48c55;
+    --tile-edge: #4a3520;
+    --tile-shade: rgba(4, 10, 4, .56);
+    --wood: #6a4223;
+    --wood-edge: #2c190a;
+    --cell: #4a2c14;
+    --wood-text: #f3e2c6;
+    --go: #f07e16;
+    --go-edge: #6e3200;
+    --soft: #3b4b2f;
+    --soft-text: #e5f3d3;
+    --prop: #2e92c7;
+    --prop-edge: #093a5c;
+    --badge: #ff5a5a;
+    --danger: #ff6b5e;
+    --bubble: #fff8ea;
+    --scrim: rgba(0, 0, 0, .6);
+    --hint: #ffe066;
+    --moon: 1;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1e3321;
+  --grass-a: #223b22;
+  --grass-b: #1d341e;
+  --on-grass: #d8ecc4;
+  --ink: #140d06;
+  --panel: #2d261e;
+  --panel-2: #3a3027;
+  --panel-text: #f6ead6;
+  --panel-soft: #cdb896;
+  --tile-face: #f2e8d2;
+  --tile-side: #b48c55;
+  --tile-edge: #4a3520;
+  --tile-shade: rgba(4, 10, 4, .56);
+  --wood: #6a4223;
+  --wood-edge: #2c190a;
+  --cell: #4a2c14;
+  --wood-text: #f3e2c6;
+  --go: #f07e16;
+  --go-edge: #6e3200;
+  --soft: #3b4b2f;
+  --soft-text: #e5f3d3;
+  --prop: #2e92c7;
+  --prop-edge: #093a5c;
+  --badge: #ff5a5a;
+  --danger: #ff6b5e;
+  --bubble: #fff8ea;
+  --scrim: rgba(0, 0, 0, .6);
+  --hint: #ffe066;
+  --moon: 1;
+  color-scheme: dark;
+}
+
+/* ===== 基础 ===== */
+*, *::before, *::after { box-sizing: border-box; }
+html { box-sizing: border-box; height: 100%; }
+body {
+  height: 100%;
+  margin: 0;
+  background-color: var(--bg);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='%23000' fill-opacity='.06'%3E%3Cellipse cx='30' cy='38' rx='9' ry='7'/%3E%3Ccircle cx='21' cy='27' r='3.6'/%3E%3Ccircle cx='27' cy='21' r='3.6'/%3E%3Ccircle cx='34' cy='21' r='3.6'/%3E%3Ccircle cx='40' cy='27' r='3.6'/%3E%3Cellipse cx='88' cy='96' rx='9' ry='7'/%3E%3Ccircle cx='79' cy='85' r='3.6'/%3E%3Ccircle cx='85' cy='79' r='3.6'/%3E%3Ccircle cx='92' cy='79' r='3.6'/%3E%3Ccircle cx='98' cy='85' r='3.6'/%3E%3C/g%3E%3C/svg%3E"),
+    repeating-linear-gradient(180deg, var(--grass-a) 0 40px, var(--grass-b) 40px 80px);
+  color: var(--panel-text);
+  font-family: var(--font);
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+button { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+:focus-visible { outline: 3px solid var(--hint); outline-offset: 2px; }
+
+/* ===== 外壳：手机竖屏，桌面居中成手机比例 ===== */
+.app { position: relative; height: 100%; max-width: 480px; margin: 0 auto; overflow: hidden; isolation: isolate; }
+.app::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 200px;
+  pointer-events: none;
+  opacity: var(--moon);
+  background:
+    radial-gradient(circle at 84% 44px, #fff6d8 0 16px, rgba(255, 246, 216, .22) 17px 30px, transparent 31px),
+    radial-gradient(circle at 12% 30px, #ffffff 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 30% 72px, #ffffff 0 1.2px, transparent 2.5px),
+    radial-gradient(circle at 54% 22px, #ffffff 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 66% 92px, #ffffff 0 1px, transparent 2.5px),
+    radial-gradient(circle at 94% 118px, #ffffff 0 1.3px, transparent 2.5px);
+}
+@media (min-width: 720px) and (min-height: 700px) {
+  .app { height: calc(100% - 40px); margin-block: 20px; border: 3px solid var(--ink); border-radius: 30px; box-shadow: 0 10px 0 var(--ink); background: inherit; }
+}
+.screen { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 10px 16px 12px; }
+
+/* ===== 通用按钮 ===== */
+.icon-btn {
+  width: 44px; height: 44px; padding: 0;
+  display: grid; place-items: center;
+  border: 3px solid var(--ink); border-radius: 14px;
+  background: var(--soft); color: var(--soft-text);
+  box-shadow: 0 4px 0 var(--ink);
+  cursor: pointer; font-size: 22px; font-weight: 900;
+}
+.icon-btn svg { width: 22px; height: 22px; fill: currentColor; }
+.icon-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.btn {
+  min-height: 48px; padding: 10px 16px;
+  border: 3px solid var(--ink); border-radius: 18px;
+  font-size: 18px; font-weight: 800; letter-spacing: .04em;
+  box-shadow: 0 5px 0 var(--ink);
+  cursor: pointer;
+  transition: transform .08s, box-shadow .08s;
+}
+.btn:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--ink); }
+.btn:disabled { cursor: default; filter: grayscale(.6); }
+.btn-go { background: var(--go); color: var(--go-text); text-shadow: 0 2px 0 var(--go-edge); }
+.btn-soft { background: var(--soft); color: var(--soft-text); }
+
+/* ===== 首页 ===== */
+.home { align-items: center; gap: 8px; }
+.home-top { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; }
+.online {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px;
+  background: var(--panel); color: var(--panel-text);
+  border: 2px solid var(--ink); font-size: 14px; font-weight: 700;
+}
+.online b { font-variant-numeric: tabular-nums; }
+.online-dot { width: 8px; height: 8px; border-radius: 50%; background: #3ccf4e; box-shadow: 0 0 0 3px rgba(60, 207, 78, .25); }
+.logo { margin: 2px 0 0; width: min(94%, 380px); line-height: 0; }
+.logo svg { width: 100%; height: auto; overflow: visible; }
+.hero { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.hero-dog { width: min(46vw, 190px); max-height: 100%; aspect-ratio: 1; animation: bob 2.4s ease-in-out infinite; }
+.hero-dog svg { width: 100%; height: 100%; display: block; }
+.hero-line { margin: 0; color: var(--on-grass); font-weight: 800; font-size: 17px; letter-spacing: .06em; text-align: center; text-wrap: balance; }
+.home-actions { width: 100%; display: grid; gap: 12px; }
+.home-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.btn-big { display: grid; gap: 2px; padding: 12px 16px 10px; }
+.btn-title { font-size: 26px; letter-spacing: .1em; }
+.btn-sub { font-size: 14px; font-weight: 700; letter-spacing: .04em; color: rgba(255, 255, 255, .92); }
+.home-foot { width: 100%; min-height: 34px; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--on-grass); font-size: 14px; font-weight: 800; }
+.team-chip { display: inline-flex; align-items: center; gap: 6px; }
+.team-chip svg { width: 30px; height: 30px; }
+
+/* ===== 对局 ===== */
+.bar { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px; min-height: 52px; }
+.bar-title {
+  justify-self: center; padding: 5px 18px; border-radius: 999px;
+  background: var(--panel); color: var(--panel-text); border: 3px solid var(--ink);
+  font-size: 18px; font-weight: 900; letter-spacing: .06em; white-space: nowrap;
+}
+.bar-left {
+  padding: 5px 12px; border-radius: 999px;
+  background: var(--wood); color: var(--wood-text); border: 2px solid var(--wood-edge);
+  font-size: 14px; font-weight: 800; white-space: nowrap;
+}
+.bar-left b { font-variant-numeric: tabular-nums; }
+.stage { position: relative; flex: 1 1 auto; min-height: 0; margin-top: 4px; }
+.slot {
+  position: relative; align-self: center; width: var(--slot-w, 100%); max-width: 100%;
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 7px;
+  border-radius: 16px; background: var(--wood); border: 3px solid var(--wood-edge);
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, .16), 0 4px 0 var(--wood-edge);
+}
+.slot-cell { display: block; aspect-ratio: 1 / 1.12; border-radius: 10px; background: var(--cell); box-shadow: inset 0 3px 0 rgba(0, 0, 0, .25); }
+.slot.is-danger { border-color: var(--danger); box-shadow: inset 0 3px 0 rgba(255, 255, 255, .16), 0 4px 0 var(--danger), 0 0 0 3px rgba(229, 57, 53, .35); animation: throb 1.2s ease-in-out infinite; }
+.slot.is-shake { animation: shake .5s ease-in-out; }
+.dock { display: flex; align-items: center; gap: 10px; padding: 12px 0 2px; min-height: 86px; }
+.mascot { position: relative; width: 64px; height: 64px; flex: none; }
+.mascot-face { width: 64px; height: 64px; }
+.mascot-face svg { width: 100%; height: 100%; display: block; }
+.bubble {
+  position: absolute; left: 4px; bottom: calc(100% + 10px); z-index: 1200;
+  width: max-content; max-width: min(260px, 72vw);
+  padding: 8px 12px; border-radius: 14px;
+  background: var(--bubble); color: var(--bubble-text); border: 2px solid var(--ink);
+  font-size: 14px; font-weight: 700; line-height: 1.45;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, .2);
+  animation: pop-in .2s ease-out;
+}
+.bubble::after { content: ""; position: absolute; left: 22px; top: 100%; border: 8px solid transparent; border-top-color: var(--ink); }
+.props { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.prop {
+  position: relative; display: grid; justify-items: center; gap: 2px;
+  padding: 8px 0 6px; border-radius: 18px;
+  border: 3px solid var(--prop-edge); background: var(--prop); color: #ffffff;
+  font-size: 14px; font-weight: 800; box-shadow: 0 4px 0 var(--prop-edge); cursor: pointer;
+}
+.prop:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--prop-edge); }
+.prop-ic svg { width: 26px; height: 26px; display: block; fill: none; stroke: #ffffff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.prop .badge {
+  position: absolute; top: -9px; right: -6px; min-width: 22px; height: 22px; padding: 0 5px;
+  border-radius: 11px; border: 2px solid #ffffff; background: var(--badge); color: #ffffff;
+  font-style: normal; font-size: 13px; font-weight: 900; line-height: 18px; text-align: center;
+}
+.prop.is-idle { filter: saturate(.55); }
+.prop.is-empty { filter: grayscale(.9); }
+.prop.is-empty .badge { background: #8a8a8a; }
+.prop.is-deny { animation: shake .3s ease-in-out; }
+
+/* ===== 牌（全部在 playfield 中，靠 transform 定位） ===== */
+.playfield { position: absolute; inset: 0; pointer-events: none; --t: 48px; }
+.tile {
+  position: absolute; left: 0; top: 0;
+  width: var(--t); height: calc(var(--t) * 1.12);
+  padding: 0; margin: 0; border: 0; background: none;
+  transform-origin: 0 0; pointer-events: auto; cursor: pointer;
+}
+.tile-face {
+  position: absolute; left: 0; top: 0; width: var(--t); height: var(--t);
+  display: grid; place-items: center;
+  border: max(1.5px, calc(var(--t) * .04)) solid var(--tile-edge); border-radius: 18%;
+  background: var(--tile-face);
+  box-shadow: 0 calc(var(--t) * .12) 0 var(--tile-side), 0 calc(var(--t) * .12) 0 max(1.5px, calc(var(--t) * .04)) var(--tile-edge);
+  transition: translate .12s ease-out;
+}
+.tile-face svg { width: 80%; height: 80%; display: block; pointer-events: none; }
+.tile::after {
+  content: ""; position: absolute; left: 0; top: 0;
+  width: var(--t); height: calc(var(--t) * 1.12); border-radius: 18%;
+  background: var(--tile-shade); opacity: 0; pointer-events: none;
+  transition: opacity .25s ease-out;
+}
+.tile.is-covered { cursor: default; }
+.tile.is-covered::after { opacity: 1; }
+.tile.is-slot { cursor: default; }
+.tile.is-flying { z-index: 1000 !important; }
+.tile.is-hint .tile-face { animation: hint 1s ease-in-out infinite; }
+@media (hover: hover) {
+  .tile.is-free:hover .tile-face { translate: 0 -3px; }
+}
+
+/* ===== 弹层 ===== */
+.modal-layer { position: absolute; inset: 0; z-index: 3000; display: grid; place-items: center; padding: 16px; background: var(--scrim); animation: fade-in .18s ease-out; }
+.modal {
+  width: min(100%, 400px); max-height: 100%; overflow-y: auto;
+  padding: 18px 18px 16px; border-radius: 24px;
+  background: var(--panel); color: var(--panel-text);
+  border: 3px solid var(--ink); box-shadow: 0 8px 0 var(--ink);
+  animation: pop-in .26s cubic-bezier(.2, 1.4, .4, 1);
+  -webkit-user-select: text; user-select: text;
+}
+.modal:focus { outline: none; }
+.modal-title { margin: 0 0 10px; font-size: 24px; font-weight: 900; letter-spacing: .06em; text-align: center; text-wrap: balance; }
+.modal-body { font-size: 15px; line-height: 1.65; }
+.modal-body p { margin: 0 0 8px; }
+.modal-actions { display: grid; gap: 10px; margin-top: 16px; }
+.modal-actions.two { grid-template-columns: 1fr 1fr; }
+.modal-dog { width: 104px; height: 104px; margin: -4px auto 6px; }
+.modal-dog svg { width: 100%; height: 100%; display: block; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 12px; }
+.stat { display: grid; gap: 2px; padding: 8px 6px; border-radius: 14px; background: var(--panel-2); border: 2px solid var(--ink); text-align: center; }
+.stat small { font-size: 12px; color: var(--panel-soft); font-weight: 700; }
+.stat b { font-size: 20px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.card-wrap { display: grid; place-items: center; aspect-ratio: 3 / 4; max-height: 34vh; margin: 0 auto; border-radius: 14px; border: 2px solid var(--ink); background: var(--panel-2); overflow: hidden; color: var(--panel-soft); font-size: 13px; }
+.card-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; -webkit-user-select: auto; user-select: auto; -webkit-touch-callout: default; }
+.card-tip { margin: 6px 0 0; text-align: center; font-size: 12px; color: var(--panel-soft); }
+.roast { margin-top: 10px; padding: 10px 12px; border-radius: 14px; background: var(--panel-2); border: 2px dashed var(--panel-soft); font-size: 15px; line-height: 1.6; white-space: pre-wrap; min-height: 3.2em; }
+.rules { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.rules li { display: grid; grid-template-columns: 30px 1fr; gap: 8px; align-items: start; }
+.rules svg { width: 30px; height: 30px; }
+.choice-list { display: grid; gap: 10px; }
+.choice { display: grid; gap: 2px; text-align: left; padding: 10px 14px; border-radius: 16px; border: 3px solid var(--ink); background: var(--panel-2); color: var(--panel-text); box-shadow: 0 4px 0 var(--ink); cursor: pointer; }
+.choice:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.choice b { font-size: 18px; }
+.choice small { font-size: 13px; color: var(--panel-soft); font-weight: 600; }
+.team-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.team { display: grid; justify-items: center; gap: 2px; padding: 8px 4px; border-radius: 16px; border: 3px solid var(--ink); background: var(--panel-2); color: var(--panel-text); cursor: pointer; box-shadow: 0 3px 0 var(--ink); }
+.team svg { width: 64px; height: 64px; display: block; }
+.team b { font-size: 14px; }
+.team small { font-size: 12px; color: var(--panel-soft); font-variant-numeric: tabular-nums; }
+.team.is-on { background: var(--go); color: var(--go-text); }
+.team.is-on small { color: var(--go-text); }
+.pack-stats { margin: 12px 0 0; text-align: center; font-size: 14px; color: var(--panel-soft); font-weight: 700; }
+.switches { display: grid; gap: 10px; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 16px; font-weight: 800; }
+.switch { position: relative; width: 56px; height: 32px; padding: 0; border-radius: 999px; border: 3px solid var(--ink); background: var(--panel-2); cursor: pointer; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%; background: var(--panel-soft); transition: transform .15s; }
+.switch[aria-pressed="true"] { background: var(--go); }
+.switch[aria-pressed="true"]::after { transform: translateX(24px); background: #ffffff; }
+.intro-big { margin: 4px 0 10px; text-align: center; font-size: 44px; font-weight: 900; letter-spacing: .08em; color: var(--danger); text-shadow: 0 3px 0 var(--ink); animation: throb 1s ease-in-out infinite; }
+
+/* ===== 提示、连消文字、特效层 ===== */
+.fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2500; }
+.toasts { position: absolute; left: 12px; right: 12px; top: 62px; z-index: 2600; display: grid; justify-items: center; gap: 8px; pointer-events: none; }
+.toast { max-width: 100%; padding: 8px 14px; border-radius: 999px; background: var(--panel); color: var(--panel-text); border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink); font-size: 14px; font-weight: 800; text-align: center; animation: toast 2.6s ease forwards; }
+.combo {
+  position: absolute; z-index: 2400; transform: translate(-50%, -50%);
+  color: #ffffff; font-size: 30px; font-weight: 900; letter-spacing: .06em; white-space: nowrap; pointer-events: none;
+  text-shadow: 0 3px 0 #3b2a1a, 2px 2px 0 #3b2a1a, -2px 2px 0 #3b2a1a, 2px -2px 0 #3b2a1a, -2px -2px 0 #3b2a1a;
+  animation: combo .95s ease-out forwards;
+}
+
+/* ===== 动画 ===== */
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes shake { 0%, 100% { translate: 0 0; } 20% { translate: -6px 0; } 40% { translate: 6px 0; } 60% { translate: -4px 0; } 80% { translate: 4px 0; } }
+@keyframes throb { 0%, 100% { scale: 1; } 50% { scale: 1.02; } }
+@keyframes pop-in { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes toast { 0% { opacity: 0; transform: translateY(-8px); } 10%, 80% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-6px); } }
+@keyframes combo { 0% { opacity: 0; scale: .5; } 20% { opacity: 1; scale: 1.15; } 70% { opacity: 1; scale: 1; translate: 0 -24px; } 100% { opacity: 0; translate: 0 -40px; } }
+@keyframes hint { 0%, 100% { box-shadow: 0 calc(var(--t) * .12) 0 var(--tile-side), 0 calc(var(--t) * .12) 0 2px var(--tile-edge), 0 0 0 0 var(--hint); } 50% { box-shadow: 0 calc(var(--t) * .12) 0 var(--tile-side), 0 calc(var(--t) * .12) 0 2px var(--tile-edge), 0 0 0 6px var(--hint); } }
+
+/* ===== 减少动态 ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+```
+
+- [ ] **Step 3: 提交**
+
+```bash
+git add src/index.html src/styles.css
+git commit -m "feat: 页面骨架与昼夜主题样式"
+```
+
+---
+
+### Task 11: 本地存档与平台能力
+
+**Files:**
+- Create: `src/ui/storage.js`
+- Create: `src/ui/platform.js`
+- Test: `tests/storage.test.mjs`
+- Test: `tests/platform.test.mjs`
+
+**Interfaces:**
+- Consumes：Task 7 的 `BREEDS`
+- Produces:
+  - storage 模块：
+    - 常量与工具函数：`SAVE_KEY`、`defaultSave()`、`dateKey(date?)`、`prevDateKey(key)`
+    - `createStore(storage | null)`，返回的对象包含：
+      - `data`（getter）
+      - `peekDay(key)`
+      - `setSetting(name, v)`、`setTeam(key)`
+      - `recordPlay()`
+      - `recordLoss(key, remaining)`
+      - `recordWin({ daily, level, key })`
+      - `currentStreak(today)`
+  - platform 模块：
+    - 纯函数：`sanitizeTeam(v)`、`summarizePeers(peers)`（返回 `{ total, teams }`）、`buildRoastPrompt(summary)`
+    - `initPlatform({ onPeers, onWinBroadcast, onChange })`：返回 `{ inClaude, room, sample, downloads }`，能力在 Promise 解析之后才逐个点亮。
+    - 调用 room 的封装：`setPresence(api, patch)`、`broadcastWin(api, team)`
+    - `aiRoast(api, summary, onText, signal)`：返回 `Promise<string>`。
+    - 热更新续玩：`hotBoot(start)`、`hotSnapshot(fn)`
+
+- [ ] **Step 1: 写失败的测试**
+
+```js file=tests/storage.test.mjs
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createStore, defaultSave, dateKey, prevDateKey, SAVE_KEY } from '../src/ui/storage.js';
+
+function mem(initial) {
+  const m = new Map(initial === undefined ? [] : [[SAVE_KEY, initial]]);
+  return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); } };
+}
+
+test('日期工具', () => {
+  assert.equal(dateKey(new Date(2026, 8, 3)), '2026-09-03');
+  assert.equal(prevDateKey('2026-03-01'), '2026-02-28');
+  assert.equal(prevDateKey('2026-01-01'), '2025-12-31');
+});
+
+test('空存储、损坏存档、抛错存储、无存储都退回默认值', () => {
+  assert.deepEqual(createStore(mem()).data, defaultSave());
+  assert.deepEqual(createStore(mem('{坏掉的 json')).data, defaultSave());
+  const boom = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } };
+  const s = createStore(boom);
+  assert.doesNotThrow(() => s.setTeam('husky'));
+  assert.equal(s.data.team, 'husky');
+  assert.deepEqual(createStore(null).data, defaultSave());
+});
+
+test('写入后可被新实例读回，缺省字段补默认', () => {
+  const st = mem();
+  const a = createStore(st);
+  a.setTeam('corgi');
+  a.setSetting('music', false);
+  const b = createStore(st);
+  assert.equal(b.data.team, 'corgi');
+  assert.equal(b.data.settings.music, false);
+  assert.equal(b.data.settings.sfx, true);
+});
+
+test('每日通关：同一天只记一次，连续打卡累加，断档重置', () => {
+  const s = createStore(mem());
+  s.recordWin({ daily: true, level: 'daily1', key: '2026-09-21' });
+  assert.equal(s.peekDay('2026-09-21').l1, true);
+  s.recordWin({ daily: true, level: 'daily2', key: '2026-09-21' });
+  s.recordWin({ daily: true, level: 'daily2', key: '2026-09-21' });
+  assert.equal(s.data.stats.dailyWins, 1);
+  assert.equal(s.data.stats.dogsContributed, 1);
+  s.recordWin({ daily: true, level: 'daily2', key: '2026-09-22' });
+  assert.equal(s.data.stats.streak, 2);
+  assert.equal(s.currentStreak('2026-09-23'), 2);
+  assert.equal(s.currentStreak('2026-09-25'), 0);
+  s.recordWin({ daily: true, level: 'daily2', key: '2026-09-25' });
+  assert.equal(s.data.stats.streak, 1);
+  assert.equal(s.data.stats.wins, 5);
+});
+
+test('失败记录尝试次数与最少剩余；peekDay 不创建记录', () => {
+  const s = createStore(mem());
+  s.recordLoss('2026-09-23', 50);
+  s.recordLoss('2026-09-23', 80);
+  assert.deepEqual(s.peekDay('2026-09-23'), { l1: false, l2: false, attempts: 2, bestRemaining: 50 });
+  assert.deepEqual(s.peekDay('2020-01-01'), { l1: false, l2: false, attempts: 0, bestRemaining: null });
+  assert.equal(s.data.daily['2020-01-01'], undefined);
+});
+```
+
+```js file=tests/platform.test.mjs
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { sanitizeTeam, summarizePeers, buildRoastPrompt, initPlatform, hotBoot } from '../src/ui/platform.js';
+
+test('阵营白名单', () => {
+  assert.equal(sanitizeTeam('husky'), 'husky');
+  assert.equal(sanitizeTeam('<img src=x>'), null);
+  assert.equal(sanitizeTeam(3), null);
+});
+
+test('在线狗友汇总：只数真人，阵营走白名单', () => {
+  const r = summarizePeers([
+    { kind: 'viewer', presence: { team: 'shiba' } },
+    { kind: 'viewer', presence: { team: 'shiba' } },
+    { kind: 'viewer', presence: { team: 'evil' } },
+    { kind: 'viewer', presence: {} },
+    { kind: 'agent', presence: { team: 'corgi' } },
+  ]);
+  assert.deepEqual(r, { total: 4, teams: { shiba: 2 } });
+  assert.deepEqual(summarizePeers(undefined), { total: 0, teams: {} });
+});
+
+test('AI 狗评提示词包含本局数据与口吻要求', () => {
+  const p = buildRoastPrompt({ levelName: '第 2 关', result: 'lost', remaining: 37, seconds: 125, moves: 88, propsUsed: 2, used: { moveOut: 1, undo: 0, shuffle: 1, revive: 0 }, teamName: '柴犬队' });
+  for (const s of ['第 2 关', '37', '125', '88', '柴犬队', '柴犬', '中文']) assert.ok(p.includes(s), `缺少：${s}`);
+  assert.ok(!p.includes('undefined'));
+});
+
+test('不在 claude.ai 里时平台能力为空，hotBoot 以空数据启动', () => {
+  const api = initPlatform({});
+  assert.equal(api.inClaude, false);
+  assert.equal(api.room, null);
+  let got = null;
+  hotBoot((d) => { got = d; });
+  assert.deepEqual(got, {});
+});
+
+test('模拟 claude.ai：能力到位后点亮并转发事件', async () => {
+  const listeners = {};
+  let peersHandler = null;
+  const room = {
+    onPeers: (fn) => { peersHandler = fn; return () => {}; },
+    on: (topic, fn) => { listeners[topic] = fn; return () => {}; },
+    presence: async () => {},
+    emit: async () => {},
+  };
+  const sample = async () => ({ text: 'x', truncated: false });
+  globalThis.claude = { use: async (name) => (name === 'room' ? room : name === 'sample' ? sample : null) };
+  try {
+    const seen = { peers: null, win: [], changes: 0 };
+    const api = initPlatform({
+      onPeers: (p) => { seen.peers = p; },
+      onWinBroadcast: (team, me) => seen.win.push([team, me]),
+      onChange: () => { seen.changes++; },
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(api.inClaude, true);
+    assert.equal(api.room, room);
+    assert.equal(api.sample, sample);
+    assert.equal(api.downloads, null);
+    peersHandler({ peers: [{ kind: 'viewer', presence: { team: 'corgi' } }] });
+    assert.deepEqual(seen.peers, { total: 1, teams: { corgi: 1 } });
+    listeners.win({ data: { team: 'golden' }, sameTab: false, isMe: false });
+    listeners.win({ data: { team: 'golden' }, sameTab: true, isMe: true });
+    assert.deepEqual(seen.win, [['golden', false]]);
+    assert.ok(seen.changes >= 2);
+  } finally {
+    delete globalThis.claude;
+  }
+});
+```
+
+- [ ] **Step 2: 运行测试，确认失败**
+
+Run: `node --test tests/storage.test.mjs tests/platform.test.mjs`
+Expected: FAIL（Cannot find module）
+
+- [ ] **Step 3: 实现存档**
+
+```js file=src/ui/storage.js
+// 本地存档：设置、狗群阵营、每日记录与统计；存储不可用或存档损坏时退回默认值，只在内存里运行
+export const SAVE_KEY = 'glgg:v1';
+
+export function defaultSave() {
+  return {
+    settings: { music: true, sfx: true, vibrate: true },
+    team: null,
+    daily: {},
+    stats: { plays: 0, wins: 0, dailyWins: 0, streak: 0, lastDailyWin: null, dogsContributed: 0 },
+  };
+}
+
+export function dateKey(d = new Date()) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+export function prevDateKey(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return dateKey(new Date(y, m - 1, d - 1));
+}
+
+const emptyDay = () => ({ l1: false, l2: false, attempts: 0, bestRemaining: null });
+
+export function createStore(storage) {
+  const save = defaultSave();
+  try {
+    const raw = storage ? storage.getItem(SAVE_KEY) : null;
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data && typeof data === 'object') {
+        Object.assign(save.settings, data.settings);
+        Object.assign(save.stats, data.stats);
+        if (data.daily && typeof data.daily === 'object') save.daily = data.daily;
+        if (typeof data.team === 'string') save.team = data.team;
+      }
+    }
+  } catch { /* 存档损坏或存储不可读：用默认值 */ }
+
+  const persist = () => {
+    try { if (storage) storage.setItem(SAVE_KEY, JSON.stringify(save)); } catch { /* 隐私模式、配额已满：忽略 */ }
+  };
+  const day = (key) => {
+    if (!save.daily[key]) save.daily[key] = emptyDay();
+    return save.daily[key];
+  };
+
+  return {
+    get data() { return save; },
+    peekDay: (key) => save.daily[key] || emptyDay(),
+    setSetting(name, value) { save.settings[name] = value; persist(); },
+    setTeam(team) { save.team = team; persist(); },
+    recordPlay() { save.stats.plays++; persist(); },
+    recordLoss(key, remaining) {
+      const d = day(key);
+      d.attempts++;
+      if (d.bestRemaining === null || remaining < d.bestRemaining) d.bestRemaining = remaining;
+      persist();
+    },
+    recordWin({ daily, level, key }) {
+      save.stats.wins++;
+      if (daily && level === 'daily1') day(key).l1 = true;
+      if (daily && level === 'daily2') {
+        const d = day(key);
+        d.attempts++;
+        d.bestRemaining = 0;
+        if (!d.l2) {
+          d.l2 = true;
+          const s = save.stats;
+          s.dailyWins++;
+          s.dogsContributed++;
+          s.streak = s.lastDailyWin === prevDateKey(key) ? s.streak + 1 : 1;
+          s.lastDailyWin = key;
+        }
+      }
+      persist();
+    },
+    currentStreak(today) {
+      const s = save.stats;
+      return s.lastDailyWin === today || s.lastDailyWin === prevDateKey(today) ? s.streak : 0;
+    },
+  };
+}
+```
+
+- [ ] **Step 4: 实现平台能力**
+
+```js file=src/ui/platform.js
+// claude.ai 平台能力的渐进增强：room（在线狗友与通关广播）、sample（AI 狗评）、downloads（保存战绩图）、hot（热更新续玩）
+// 普通网页里 globalThis.claude 不存在，所有能力为空，页面照常运行
+import { BREEDS } from '../art/dogs.js';
+
+const TEAM_KEYS = new Set(BREEDS.map((b) => b.key));
+
+export function sanitizeTeam(value) {
+  return typeof value === 'string' && TEAM_KEYS.has(value) ? value : null;
+}
+
+// 在线人数与各阵营人数：只数真人（kind === 'viewer'），阵营只认白名单
+export function summarizePeers(peers) {
+  const teams = {};
+  let total = 0;
+  for (const p of peers || []) {
+    if (p.kind !== 'viewer') continue;
+    total++;
+    const t = sanitizeTeam(p.presence && p.presence.team);
+    if (t) teams[t] = (teams[t] || 0) + 1;
+  }
+  return { total, teams };
+}
+
+export function buildRoastPrompt(s) {
+  const result = s.result === 'won' ? '通关' : `失败，还剩 ${s.remaining} 张没消`;
+  return [
+    '你是网页小游戏「狗了个狗」里的柴犬吉祥物。玩法和《羊了个羊》一样：点牌进 7 格卡槽，三张相同就消除，卡槽满了就输。',
+    '请用柴犬的口吻、简体中文，写两到三句话点评玩家这一局：毒舌但友善、好笑、有梗，可以带一两个「汪」；不要使用表情符号，不超过 90 个字，不要逐条复述数据。',
+    `本局数据：关卡「${s.levelName}」；结果：${result}；用时 ${s.seconds} 秒；拿牌 ${s.moves} 次；用了道具 ${s.propsUsed} 次（移出 ${s.used.moveOut}、撤回 ${s.used.undo}、洗牌 ${s.used.shuffle}、复活 ${s.used.revive}）；玩家阵营：${s.teamName || '还没加入狗群'}。`,
+    '直接输出点评正文。',
+  ].join('\n');
+}
+
+export function initPlatform({ onPeers, onWinBroadcast, onChange } = {}) {
+  const api = { inClaude: false, room: null, sample: null, downloads: null };
+  const c = globalThis.claude;
+  if (!c || typeof c.use !== 'function') return api;
+  api.inClaude = true;
+  const use = (name) => Promise.resolve().then(() => c.use(name)).catch(() => null);
+  use('room').then((room) => {
+    if (!room) return;
+    try {
+      room.onPeers((change) => onPeers?.(summarizePeers(change.peers)), () => onPeers?.(null));
+      room.on('win', (msg) => { if (!msg.sameTab) onWinBroadcast?.(sanitizeTeam(msg.data && msg.data.team), !!msg.isMe); });
+      api.room = room;
+    } catch { api.room = null; }
+    onChange?.(api);
+  });
+  use('sample').then((sample) => { if (sample) { api.sample = sample; onChange?.(api); } });
+  use('downloads').then((downloads) => { if (downloads) { api.downloads = downloads; onChange?.(api); } });
+  return api;
+}
+
+export function setPresence(api, patch) {
+  if (!api.room) return;
+  Promise.resolve().then(() => api.room.presence({ ...patch, team: sanitizeTeam(patch.team) })).catch(() => {});
+}
+
+export function broadcastWin(api, team) {
+  if (!api.room) return;
+  Promise.resolve().then(() => api.room.emit('win', { team: sanitizeTeam(team) })).catch(() => {});
+}
+
+export async function aiRoast(api, summary, onText, signal) {
+  if (!api.sample) throw { code: 'unavailable', message: '当前环境不支持 AI 狗评' };
+  const res = await api.sample(buildRoastPrompt(summary), {
+    onText: ({ text }) => onText(text),
+    modelTier: 'quick',
+    cache: false,
+    signal,
+  });
+  return res.text;
+}
+
+// 热更新续玩：页面重新发布后，用快照里的动作日志恢复对局
+export function hotBoot(start) {
+  const hot = globalThis.claude && globalThis.claude.hot;
+  if (hot && typeof hot.ready === 'function') {
+    try { hot.ready(start); return; } catch { /* 退回普通启动 */ }
+  }
+  start((hot && hot.data) || {});
+}
+
+export function hotSnapshot(fn) {
+  const hot = globalThis.claude && globalThis.claude.hot;
+  if (hot && typeof hot.snapshot === 'function') {
+    try { hot.snapshot(fn); } catch { /* 不支持就算了 */ }
+  }
+}
+```
+
+- [ ] **Step 5: 运行测试，确认通过**
+
+Run: `node --test tests/storage.test.mjs tests/platform.test.mjs`
+Expected: PASS（10 个测试）
+
+- [ ] **Step 6: 提交**
+
+```bash
+git add src/ui/storage.js src/ui/platform.js tests/storage.test.mjs tests/platform.test.mjs
+git commit -m "feat: 本地存档与 claude.ai 平台能力渐进增强"
+```
+
+---
+
+### Task 12: 特效层与战绩图
+
+**Files:**
+- Create: `src/ui/fx.js`
+- Create: `src/ui/share.js`
+
+**Interfaces:**
+- Consumes：Task 7 的 `logoSVG`、`dogHeadSVG`、`iconSVG`
+- Produces:
+  - `createFx(canvas)`，返回 `{ resize(), burst(x, y, color), confetti() }`。坐标以 `.app` 左上角为原点；设置了减少动态时什么也不画。
+  - `renderShareCard(info): Promise<{ blob: Blob, url: string }>`，`info` 使用 main.js 里 `summary()` 返回的结构。
+  - `saveCard(blob, platform)`：返回 `Promise<'saved' | 'declined' | 'failed' | 'shared' | 'downloaded'>`。
+
+- [ ] **Step 1: 写特效层**
+
+```js file=src/ui/fx.js
+// Canvas 特效层：消除时的骨头/爪印/星星爆点与通关彩带；没有粒子时停止动画循环
+const PALETTE = ['#FF8A1F', '#FFD43B', '#43A047', '#29B6F6', '#F06292', '#8E44AD', '#FFFFFF'];
+const rand = (a, b) => a + Math.random() * (b - a);
+
+export function createFx(canvas) {
+  const ctx = canvas.getContext('2d');
+  const reduce = !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  let parts = [];
+  let raf = 0;
+  let last = 0;
+  let w = 0;
+  let h = 0;
+
+  function resize() {
+    const r = canvas.getBoundingClientRect();
+    const dpr = Math.min(2, globalThis.devicePixelRatio || 1);
+    w = r.width;
+    h = r.height;
+    canvas.width = Math.max(1, Math.round(w * dpr));
+    canvas.height = Math.max(1, Math.round(h * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  const circle = (x, y, r) => { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); };
+
+  function draw(p) {
+    const s = p.size;
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life / p.fade));
+    ctx.fillStyle = p.color;
+    ctx.strokeStyle = '#3B2A1A';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    if (p.shape === 'bone') {
+      circle(-s * 0.55, -s * 0.2, s * 0.26);
+      circle(-s * 0.55, s * 0.2, s * 0.26);
+      circle(s * 0.55, -s * 0.2, s * 0.26);
+      circle(s * 0.55, s * 0.2, s * 0.26);
+      ctx.rect(-s * 0.55, -s * 0.16, s * 1.1, s * 0.32);
+      ctx.fill();
+    } else if (p.shape === 'paw') {
+      ctx.ellipse(0, s * 0.18, s * 0.34, s * 0.28, 0, 0, Math.PI * 2);
+      for (const [dx, dy] of [[-0.38, -0.2], [-0.13, -0.42], [0.13, -0.42], [0.38, -0.2]]) circle(dx * s, dy * s, s * 0.13);
+      ctx.fill();
+    } else if (p.shape === 'star') {
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 ? s * 0.22 : s * 0.5;
+        const a = (i * Math.PI) / 5 - Math.PI / 2;
+        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if (p.shape === 'rect') {
+      ctx.rect(-s / 2, -s / 4, s, s / 2);
+      ctx.fill();
+    } else {
+      circle(0, 0, s * 0.3);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function frame(t) {
+    const dt = Math.min(0.05, last ? (t - last) / 1000 : 1 / 60);
+    last = t;
+    ctx.clearRect(0, 0, w, h);
+    parts = parts.filter((p) => (p.life -= dt) > 0 && p.y < h + 80);
+    const k = (d) => Math.pow(d, dt * 60);
+    for (const p of parts) {
+      p.vy += p.g * dt;
+      p.vx *= k(p.drag);
+      p.vy *= k(p.drag);
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.rot += p.vr * dt;
+      draw(p);
+    }
+    if (parts.length) raf = requestAnimationFrame(frame);
+    else { raf = 0; last = 0; ctx.clearRect(0, 0, w, h); }
+  }
+  const kick = () => { if (!raf) raf = requestAnimationFrame(frame); };
+
+  function burst(x, y, color) {
+    if (reduce) return;
+    const shapes = ['bone', 'paw', 'star', 'dot'];
+    for (let i = 0; i < 16; i++) {
+      const a = rand(0, Math.PI * 2);
+      const v = rand(160, 420);
+      parts.push({
+        shape: shapes[i % 4], x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 160, g: 900, drag: 0.985,
+        rot: rand(0, 6.28), vr: rand(-8, 8), size: rand(10, 18),
+        color: i % 3 === 0 ? PALETTE[i % PALETTE.length] : color, life: rand(0.55, 0.9), fade: 0.3,
+      });
+    }
+    kick();
+  }
+
+  function confetti() {
+    if (reduce) return;
+    for (let i = 0; i < 140; i++) {
+      parts.push({
+        shape: i % 5 === 0 ? 'bone' : 'rect', x: rand(0, w), y: rand(-h * 0.6, -10), vx: rand(-60, 60), vy: rand(80, 220),
+        g: 140, drag: 0.995, rot: rand(0, 6.28), vr: rand(-6, 6), size: rand(10, 16),
+        color: PALETTE[i % PALETTE.length], life: rand(2.6, 3.6), fade: 0.6,
+      });
+    }
+    kick();
+  }
+
+  resize();
+  return { resize, burst, confetti };
+}
+```
+
+- [ ] **Step 2: 写战绩图**
+
+```js file=src/ui/share.js
+// 战绩图：Canvas 绘制 1080×1440 竖版海报；保存优先走 downloads 能力，普通网页再试系统分享，最后 <a download>
+import { logoSVG } from '../art/logo.js';
+import { dogHeadSVG } from '../art/dogs.js';
+import { iconSVG } from '../art/icons.js';
+
+const W = 1080;
+const H = 1440;
+const FONT = '"PingFang SC", "HarmonyOS Sans SC", "MiSans", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif';
+const INK = '#3B2A1A';
+
+function svgImage(svg) {
+  const src = svg.includes('xmlns=') ? svg : svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('SVG 图片加载失败'));
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(src)}`;
+  });
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+const fmtTime = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+
+export async function renderShareCard(info) {
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const won = info.result === 'won';
+
+  ctx.fillStyle = '#A5D66F';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#98CE62';
+  for (let y = 60; y < H; y += 120) ctx.fillRect(0, y, W, 60);
+
+  const kinds = Array.from({ length: 6 }, (_, i) => (info.moves * 7 + i * 5) % 16);
+  const [logo, dog, ...icons] = await Promise.all([
+    svgImage(logoSVG()),
+    svgImage(dogHeadSVG(info.breedKey, won ? 'cheer' : 'sad')),
+    ...kinds.map((k) => svgImage(iconSVG(k, 128))),
+  ]);
+
+  ctx.drawImage(logo, 130, 40, 820, 267);
+
+  ctx.fillStyle = INK;
+  roundRect(ctx, 80, 344, 920, 880, 56);
+  ctx.fill();
+  ctx.fillStyle = '#FFFBF0';
+  roundRect(ctx, 80, 330, 920, 880, 56);
+  ctx.fill();
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = INK;
+  ctx.stroke();
+
+  ctx.drawImage(dog, W / 2 - 160, 346, 320, 320);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = won ? '#E8641A' : '#C62828';
+  ctx.font = `900 92px ${FONT}`;
+  ctx.fillText(won ? '通关成功！' : `还差 ${info.remaining} 张！`, W / 2, 770);
+  ctx.fillStyle = '#7A5A34';
+  ctx.font = `700 38px ${FONT}`;
+  ctx.fillText(`${info.mode === 'daily' ? '今日挑战' : '自由练习'} · ${info.levelName} · ${info.dateKey}`, W / 2, 836);
+
+  const stats = [['用时', fmtTime(info.seconds)], ['拿牌', `${info.moves} 次`], ['道具', `${info.propsUsed} 次`]];
+  stats.forEach(([label, value], i) => {
+    const x = 130 + i * 280;
+    const y = 884;
+    ctx.fillStyle = '#FFF1D6';
+    roundRect(ctx, x, y, 260, 168, 32);
+    ctx.fill();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    ctx.fillStyle = '#7A5A34';
+    ctx.font = `700 34px ${FONT}`;
+    ctx.fillText(label, x + 130, y + 58);
+    ctx.fillStyle = INK;
+    ctx.font = `900 54px ${FONT}`;
+    ctx.fillText(value, x + 130, y + 130);
+  });
+
+  ctx.fillStyle = INK;
+  ctx.font = `800 40px ${FONT}`;
+  const line = !info.teamName
+    ? '快来选个狗群，一起通关'
+    : won && info.key === 'daily2'
+      ? `我为${info.teamName}贡献了第 ${info.dogs} 只狗`
+      : `${info.teamName} · 连续打卡 ${info.streak} 天`;
+  ctx.fillText(line, W / 2, 1136);
+
+  icons.forEach((img, i) => ctx.drawImage(img, 88 + i * 154, 1244, 120, 120));
+
+  ctx.fillStyle = '#2F5D1E';
+  ctx.font = `800 36px ${FONT}`;
+  ctx.fillText('狗了个狗 · 每天一关，等你来挑战', W / 2, 1412);
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+  if (!blob) throw new Error('战绩图导出失败');
+  return { blob, url: URL.createObjectURL(blob) };
+}
+
+export async function saveCard(blob, platform) {
+  const filename = `狗了个狗战绩-${Date.now()}.png`;
+  if (platform.downloads) {
+    try {
+      await platform.downloads.save({ filename, data: blob });
+      return 'saved';
+    } catch (e) {
+      return e && e.code === 'declined' ? 'declined' : 'failed';
+    }
+  }
+  // Artifact 沙箱里 <a download> 与 Web Share 都不可用，只能让用户长按图片
+  if (platform.inClaude) return 'failed';
+  try {
+    const file = new File([blob], filename, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: '狗了个狗' });
+      return 'shared';
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return 'declined';
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  return 'downloaded';
+}
+```
+
+- [ ] **Step 3: 提交**
+
+```bash
+git add src/ui/fx.js src/ui/share.js
+git commit -m "feat: 消除粒子、通关彩带与战绩图"
+```
+
+---
+
+### Task 13: 牌面渲染与动画
+
+**Files:**
+- Create: `src/ui/board.js`
+
+**Interfaces:**
+- Consumes：
+  - Task 7 的 `ICONS`
+  - Task 3 的 `STACK_GAP`
+  - Task 5 的 `BUFFER_COLS` 和 `Game`
+  - Task 10 的 DOM 约定
+- Produces:
+  - `createBoard({ screen, stage, slotEl, playfield, onTap })`，返回的对象包含：
+    - `mount(game)`、`clear()`、`resize()`、`refresh()`
+    - `play(events, hooks): Promise<void>`，其中 `hooks` 为 `{ onLand?(ev), onEliminate?(ev, {x, y}) }`
+    - `deny(id)`、`hint(id)`、`clearHint()`、`center(id)`
+  - 坐标系：以 `#game`（与 `.app` 同大小）的左上角为原点。
+  - 触发 `onTap(id)` 的方式有两种：鼠标或触屏的 pointerdown，以及键盘触发的 click（`detail === 0`）。
+
+- [ ] **Step 1: 实现**
+
+```js file=src/ui/board.js
+// 牌面渲染：所有牌在覆盖整屏的 playfield 里，靠 transform 在场上 / 卡槽 / 移出区之间移动；按对局事件播放动画
+import { ICONS } from '../art/icons.js';
+import { STACK_GAP } from '../core/layout.js';
+import { BUFFER_COLS } from '../core/game.js';
+
+const ROW_H = 1.12;    // 盲盒堆与移出区那一行的高度（牌宽为单位）
+const BUF_GAP = 0.1;   // 移出区列间距
+const BUF_LIFT = 0.16; // 移出区叠放时每层上移
+const T_MIN = 24;
+const T_MAX = 64;
+
+export function createBoard({ screen, stage, slotEl, playfield, onTap }) {
+  const reduce = !!globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const pos = new Map();
+  let game = null;
+  let els = [];
+  let visualSlot = [];
+  let T = 48;
+  let S = 44;
+  let bx = 0;
+  let by = 0;
+  let cells = [];
+  let hinted = -1;
+
+  const tf = (p) => `translate3d(${p.x}px, ${p.y}px, 0) scale(${p.s})`;
+
+  // 鼠标/触屏在 pointerdown 就响应（更跟手）；键盘回车/空格产生的 click（detail === 0）另行处理
+  playfield.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    const el = e.target.closest('.tile');
+    if (!el) return;
+    e.preventDefault();
+    onTap(Number(el.dataset.id));
+  });
+  playfield.addEventListener('click', (e) => {
+    if (e.detail !== 0) return;
+    const el = e.target.closest('.tile');
+    if (el) onTap(Number(el.dataset.id));
+  });
+
+  function measure() {
+    const L = game.level;
+    const sr = screen.getBoundingClientRect();
+    const st = stage.getBoundingClientRect();
+    const unitsH = L.rows + STACK_GAP + ROW_H;
+    const fit = Math.floor(Math.min(st.width / L.cols, st.height / unitsH));
+    T = Math.max(T_MIN, Math.min(T_MAX, fit));
+    bx = st.left - sr.left + (st.width - L.cols * T) / 2;
+    by = st.top - sr.top + Math.max(0, (st.height - unitsH * T) / 2);
+    playfield.style.setProperty('--t', `${T}px`);
+    slotEl.style.setProperty('--slot-w', `${Math.round(L.cols * T + 20)}px`);
+    cells = Array.from(slotEl.children, (c) => {
+      const r = c.getBoundingClientRect();
+      return { x: r.left - sr.left, y: r.top - sr.top, w: r.width };
+    });
+    S = cells.length ? cells[0].w : T;
+  }
+
+  const zOf = (t) => (t.group === 'main' ? 10 + t.z * 20 + Math.round(t.y * 2) : 10 + t.z);
+  function bufPos(col, h) {
+    const L = game.level;
+    const x0 = L.cols / 2 - (BUFFER_COLS + (BUFFER_COLS - 1) * BUF_GAP) / 2;
+    return { x: bx + (x0 + col * (1 + BUF_GAP)) * T, y: by + (L.rows + STACK_GAP - h * BUF_LIFT) * T, s: 1, z: 700 + h * 4 + col };
+  }
+  function slotAt(i) {
+    const c = cells[Math.max(0, Math.min(i, cells.length - 1))];
+    return { x: c.x, y: c.y, s: S / T, z: 900 + i };
+  }
+  function posOf(id) {
+    const st = game.state;
+    const t = st.tiles[id];
+    if (t.zone === 'slot') return slotAt(visualSlot.indexOf(id));
+    if (t.zone === 'buffer') return bufPos(t.col, st.buffer[t.col].indexOf(id));
+    return { x: bx + t.x * T, y: by + t.y * T, s: 1, z: zOf(t) };
+  }
+
+  function put(id, p) {
+    const el = els[id];
+    if (!el) return;
+    el.style.transform = tf(p);
+    el.style.zIndex = String(p.z);
+    pos.set(id, p);
+  }
+
+  // 移到新位置；lift > 0 时走抛物线（先抬高再落下）
+  function move(id, p, ms, lift = 0) {
+    const el = els[id];
+    if (!el) return Promise.resolve();
+    const from = pos.get(id);
+    for (const a of el.getAnimations()) a.finish();
+    put(id, p);
+    if (reduce || !from || !ms) return Promise.resolve();
+    const frames = lift
+      ? [{ transform: tf(from) }, { transform: tf({ x: (from.x + p.x) / 2, y: Math.min(from.y, p.y) - lift, s: Math.max(from.s, p.s) * 1.1 }), offset: 0.45 }, { transform: tf(p) }]
+      : [{ transform: tf(from) }, { transform: tf(p) }];
+    return el.animate(frames, { duration: ms, easing: 'cubic-bezier(.3,.7,.35,1)' }).finished.catch(() => {});
+  }
+
+  // 以牌中心为基准缩放（transform-origin 在左上角，需要补偿位移）
+  function around(p, k) {
+    const w = T * p.s;
+    const h = T * ROW_H * p.s;
+    return { x: p.x + (w - w * k) / 2, y: p.y + (h - h * k) / 2, s: p.s * k, z: p.z };
+  }
+
+  function pop(id) {
+    const el = els[id];
+    const p = pos.get(id);
+    if (!el || !p) return Promise.resolve();
+    const done = reduce
+      ? Promise.resolve()
+      : el.animate(
+        [{ transform: tf(p), opacity: 1 }, { transform: tf(around(p, 1.25)), opacity: 1, offset: 0.35 }, { transform: tf(around(p, 0.2)), opacity: 0 }],
+        { duration: 220, easing: 'ease-in', fill: 'forwards' },
+      ).finished.catch(() => {});
+    return done.then(() => { el.remove(); els[id] = null; pos.delete(id); });
+  }
+
+  function setIcon(id, kind) {
+    const use = els[id] && els[id].querySelector('use');
+    if (use) use.setAttribute('href', `#ic-${ICONS[kind].key}`);
+  }
+
+  async function flip(changes) {
+    const ids = game.state.tiles.filter((t) => t.zone === 'board' && els[t.id]).map((t) => t.id);
+    const squash = (p, k) => `${tf(p)} translate(${T / 2}px, 0) scaleX(${k}) translate(${-T / 2}px, 0)`;
+    if (!reduce) {
+      await Promise.all(ids.map((id) => els[id].animate(
+        [{ transform: tf(pos.get(id)) }, { transform: squash(pos.get(id), 0.05) }],
+        { duration: 150, easing: 'ease-in', fill: 'forwards' },
+      ).finished.catch(() => {})));
+    }
+    for (const c of changes) setIcon(c.id, c.kind);
+    if (!reduce) {
+      await Promise.all(ids.map((id) => {
+        const el = els[id];
+        for (const a of el.getAnimations()) a.cancel();
+        return el.animate([{ transform: squash(pos.get(id), 0.05) }, { transform: tf(pos.get(id)) }], { duration: 170, easing: 'ease-out' }).finished.catch(() => {});
+      }));
+    }
+  }
+
+  function refresh() {
+    if (!game) return;
+    for (const t of game.state.tiles) {
+      const el = els[t.id];
+      if (!el) continue;
+      const free = game.isFree(t.id);
+      const covered = !free && (t.zone === 'board' || t.zone === 'buffer');
+      el.classList.toggle('is-covered', covered);
+      el.classList.toggle('is-free', free);
+      el.classList.toggle('is-slot', t.zone === 'slot');
+      el.tabIndex = free ? 0 : -1;
+      el.setAttribute('aria-label', `${ICONS[t.kind].name}${covered ? '，被压住' : t.zone === 'slot' ? '，在卡槽中' : ''}`);
+    }
+  }
+
+  function mount(g) {
+    game = g;
+    const st = g.state;
+    playfield.textContent = '';
+    els = [];
+    pos.clear();
+    hinted = -1;
+    visualSlot = st.slot.slice();
+    measure();
+    const frag = document.createDocumentFragment();
+    for (const t of st.tiles) {
+      if (t.zone === 'gone') continue;
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'tile';
+      el.dataset.id = String(t.id);
+      el.innerHTML = `<span class="tile-face"><svg aria-hidden="true" focusable="false"><use href="#ic-${ICONS[t.kind].key}"></use></svg></span>`;
+      els[t.id] = el;
+      frag.appendChild(el);
+    }
+    playfield.appendChild(frag);
+    for (const t of st.tiles) if (els[t.id]) put(t.id, posOf(t.id));
+    refresh();
+    if (reduce) return;
+    for (const t of st.tiles) {
+      const el = els[t.id];
+      if (!el || t.zone !== 'board') continue;
+      const p = pos.get(t.id);
+      el.animate(
+        [{ transform: tf({ ...p, y: p.y - T * 1.6 }), opacity: 0 }, { transform: tf(p), opacity: 1 }],
+        { duration: 360, delay: Math.min(620, t.z * 32 + (t.id % 9) * 10), easing: 'cubic-bezier(.2,.9,.3,1.15)', fill: 'backwards' },
+      );
+    }
+  }
+
+  async function play(events, hooks = {}) {
+    for (const ev of events) {
+      if (ev.type === 'pick') {
+        visualSlot.splice(ev.slotIndex, 0, ev.id);
+        const el = els[ev.id];
+        el.classList.add('is-flying');
+        refresh();
+        const jobs = [move(ev.id, slotAt(ev.slotIndex), 200, T * 0.9)];
+        visualSlot.forEach((id, i) => { if (id !== ev.id) jobs.push(move(id, slotAt(i), 150)); });
+        await Promise.all(jobs);
+        el.classList.remove('is-flying');
+        hooks.onLand?.(ev);
+      } else if (ev.type === 'eliminate') {
+        const cs = ev.ids.map(center);
+        hooks.onEliminate?.(ev, { x: cs.reduce((a, c) => a + c.x, 0) / cs.length, y: cs.reduce((a, c) => a + c.y, 0) / cs.length });
+        await Promise.all(ev.ids.map(pop));
+        visualSlot = visualSlot.filter((id) => !ev.ids.includes(id));
+        await Promise.all(visualSlot.map((id, i) => move(id, slotAt(i), 150)));
+      } else if (ev.type === 'moveOut') {
+        const moved = new Set(ev.moves.map((m) => m.id));
+        visualSlot = visualSlot.filter((id) => !moved.has(id));
+        refresh();
+        await Promise.all([
+          ...ev.moves.map((m) => move(m.id, bufPos(m.col, m.height), 280, T * 0.7)),
+          ...visualSlot.map((id, i) => move(id, slotAt(i), 180)),
+        ]);
+      } else if (ev.type === 'undo') {
+        visualSlot = visualSlot.filter((id) => id !== ev.id);
+        refresh();
+        await Promise.all([move(ev.id, posOf(ev.id), 260, T * 0.8), ...visualSlot.map((id, i) => move(id, slotAt(i), 160))]);
+      } else if (ev.type === 'shuffle') {
+        await flip(ev.changes);
+      }
+    }
+    refresh();
+  }
+
+  function center(id) {
+    const p = pos.get(id);
+    return p ? { x: p.x + (T * p.s) / 2, y: p.y + (T * ROW_H * p.s) / 2 } : { x: 0, y: 0 };
+  }
+
+  function deny(id) {
+    const el = els[id];
+    const p = pos.get(id);
+    if (!el || !p || reduce) return;
+    el.animate([{ transform: tf(p) }, { transform: tf({ ...p, x: p.x - 5 }) }, { transform: tf({ ...p, x: p.x + 5 }) }, { transform: tf(p) }], { duration: 200 });
+  }
+
+  function hint(id) {
+    clearHint();
+    if (els[id]) { els[id].classList.add('is-hint'); hinted = id; }
+  }
+  function clearHint() {
+    if (hinted >= 0 && els[hinted]) els[hinted].classList.remove('is-hint');
+    hinted = -1;
+  }
+
+  function resize() {
+    if (!game) return;
+    measure();
+    for (const t of game.state.tiles) if (els[t.id]) put(t.id, posOf(t.id));
+  }
+
+  function clear() {
+    playfield.textContent = '';
+    els = [];
+    pos.clear();
+    visualSlot = [];
+    game = null;
+    hinted = -1;
+  }
+
+  return { mount, clear, resize, refresh, play, deny, hint, clearHint, center };
+}
+```
+
+- [ ] **Step 2: 提交**
+
+```bash
+git add src/ui/board.js
+git commit -m "feat: 牌面渲染、飞入卡槽与消除动画"
+```
+
+---
+
+### Task 14: 界面层（首页、HUD、弹层、吉祥物）
+
+**Files:**
+- Create: `src/ui/screens.js`
+
+**Interfaces:**
+- Consumes：Task 7 的 `BREEDS`、`dogHeadSVG`、`logoSVG`、`iconSVG`；Task 10 的 DOM 约定
+- Produces：`createScreens()` 返回的对象包含以下方法。
+  - 页面与 HUD：
+    - `show('home' | 'game')`
+    - `home({ dailySub, teamName, streak, online })`
+    - `hud({ name, left, props, can })`
+    - `denyProp(name)`、`slotDanger(on)`、`shakeSlot()`
+  - 吉祥物与提示：
+    - `setBreed(key)`、`setBaseMood(mood)`、`flashMood(mood, ms)`
+    - `say(text, ms)`、`hush()`
+    - `toast(text)`、`combo(text, x, y)`
+  - 弹层：
+    - `open(opts)`：返回 `{ body, buttons }`
+    - `close()`、`isOpen()`
+    - `settings(settings, onToggle)`
+    - `help()`
+    - `practice(LEVELS, onPick)`
+    - `pack({ selected, peers, stats, first }, onPick)`
+    - `pause({ settings, onToggle, onResume, onRestart, onHome })`
+    - `intro2(levelCfg, onStart)`
+    - `result(info, handlers)`
+    - `setCard(url)`、`cardFailed()`、`roastText(text)`
+
+- [ ] **Step 1: 实现**
+
+```js file=src/ui/screens.js
+// 界面层：首页、HUD、弹层、吉祥物与气泡、提示条；只负责渲染与收集点击，流程由 main.js 编排
+import { BREEDS, dogHeadSVG } from '../art/dogs.js';
+import { logoSVG } from '../art/logo.js';
+import { iconSVG } from '../art/icons.js';
+
+const $ = (id) => document.getElementById(id);
+const fmtTime = (sec) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+
+export function createScreens() {
+  const layer = $('modal-layer');
+  const modal = $('modal');
+  const bubble = $('bubble');
+  const face = $('mascot-face');
+  let breed = 'shiba';
+  let baseMood = 'idle';
+  let shown = '';
+  let moodTimer = 0;
+  let bubbleTimer = 0;
+  let lastFocus = null;
+
+  $('logo').insertAdjacentHTML('beforeend', logoSVG().replace('<svg', '<svg aria-hidden="true"'));
+
+  // ---- 吉祥物 ----
+  function paint(m) {
+    if (m === shown) return;
+    shown = m;
+    face.innerHTML = dogHeadSVG(breed, m);
+  }
+  function setBaseMood(m) { baseMood = m; clearTimeout(moodTimer); paint(m); }
+  function flashMood(m, ms = 800) {
+    clearTimeout(moodTimer);
+    paint(m);
+    moodTimer = setTimeout(() => paint(baseMood), ms);
+  }
+  function setBreed(key) {
+    breed = key || 'shiba';
+    shown = '';
+    paint(baseMood);
+    $('hero-dog').innerHTML = dogHeadSVG(breed, 'happy');
+  }
+  function say(text, ms = 1800) {
+    bubble.textContent = text;
+    bubble.hidden = false;
+    clearTimeout(bubbleTimer);
+    bubbleTimer = setTimeout(() => { bubble.hidden = true; }, ms);
+  }
+  function hush() { clearTimeout(bubbleTimer); bubble.hidden = true; }
+
+  // ---- 页面与 HUD ----
+  function show(name) {
+    $('home').hidden = name !== 'home';
+    $('game').hidden = name !== 'game';
+  }
+  function home({ dailySub, teamName, streak, online }) {
+    $('daily-sub').textContent = dailySub;
+    const chip = $('team-chip');
+    chip.innerHTML = dogHeadSVG(breed, 'idle');
+    const name = document.createElement('span');
+    name.textContent = teamName;
+    chip.appendChild(name);
+    $('streak').textContent = streak > 0 ? `连续打卡 ${streak} 天` : '';
+    const box = $('online');
+    box.hidden = !(online && online.total > 0);
+    if (!box.hidden) $('online-count').textContent = String(online.total);
+  }
+  function hud({ name, left, props, can }) {
+    $('level-name').textContent = name;
+    $('tiles-left').textContent = String(left);
+    for (const k of ['moveOut', 'undo', 'shuffle']) {
+      const btn = $(`prop-${k}`);
+      $(`badge-${k}`).textContent = String(props[k]);
+      btn.classList.toggle('is-empty', props[k] <= 0);
+      btn.classList.toggle('is-idle', props[k] > 0 && !can[k]);
+      btn.setAttribute('aria-label', `${btn.querySelector('.prop-name').textContent}，剩 ${props[k]} 次`);
+    }
+  }
+  const restart = (el, cls) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
+  function denyProp(k) { restart($(`prop-${k}`), 'is-deny'); }
+  function slotDanger(on) { $('slot').classList.toggle('is-danger', on); }
+  function shakeSlot() { restart($('slot'), 'is-shake'); }
+
+  function toast(text) {
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = text;
+    $('toasts').appendChild(t);
+    setTimeout(() => t.remove(), 2700);
+  }
+  function combo(text, x, y) {
+    const c = document.createElement('div');
+    c.className = 'combo';
+    c.textContent = text;
+    c.style.left = `${x}px`;
+    c.style.top = `${y}px`;
+    $('app').appendChild(c);
+    setTimeout(() => c.remove(), 1000);
+  }
+
+  // ---- 弹层 ----
+  function open({ title, body = '', actions = [], dismissible = true, onDismiss = null }) {
+    lastFocus = document.activeElement;
+    modal.textContent = '';
+    const h = document.createElement('h2');
+    h.className = 'modal-title';
+    h.id = 'modal-title';
+    h.textContent = title;
+    const b = document.createElement('div');
+    b.className = 'modal-body';
+    if (typeof body === 'string') b.innerHTML = body;
+    else if (body) b.appendChild(body);
+    const acts = document.createElement('div');
+    acts.className = 'modal-actions';
+    const buttons = {};
+    for (const a of actions) {
+      if (a.hidden) continue;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `btn ${a.go ? 'btn-go' : 'btn-soft'}`;
+      btn.textContent = a.label;
+      btn.addEventListener('click', () => a.onClick(btn));
+      acts.appendChild(btn);
+      if (a.key) buttons[a.key] = btn;
+    }
+    modal.append(h, b);
+    if (acts.children.length) modal.appendChild(acts);
+    layer.hidden = false;
+    const dismiss = () => { close(); onDismiss?.(); };
+    layer.onclick = dismissible ? (e) => { if (e.target === layer) dismiss(); } : null;
+    layer.onkeydown = dismissible ? (e) => { if (e.key === 'Escape') dismiss(); } : null;
+    modal.focus();
+    return { body: b, buttons };
+  }
+  function close() {
+    if (layer.hidden) return;
+    layer.hidden = true;
+    modal.textContent = '';
+    layer.onclick = null;
+    layer.onkeydown = null;
+    if (lastFocus && lastFocus.focus) lastFocus.focus();
+  }
+  const isOpen = () => !layer.hidden;
+
+  function switches(settings, onToggle) {
+    const wrap = document.createElement('div');
+    wrap.className = 'switches';
+    for (const [key, label] of [['music', '背景音乐'], ['sfx', '音效'], ['vibrate', '震动']]) {
+      const row = document.createElement('div');
+      row.className = 'switch-row';
+      const span = document.createElement('span');
+      span.id = `sw-label-${key}`;
+      span.textContent = label;
+      const sw = document.createElement('button');
+      sw.type = 'button';
+      sw.className = 'switch';
+      sw.id = `sw-${key}`;
+      sw.setAttribute('aria-labelledby', span.id);
+      sw.setAttribute('aria-pressed', String(!!settings[key]));
+      sw.addEventListener('click', () => {
+        const v = sw.getAttribute('aria-pressed') !== 'true';
+        sw.setAttribute('aria-pressed', String(v));
+        onToggle(key, v);
+      });
+      row.append(span, sw);
+      wrap.appendChild(row);
+    }
+    return wrap;
+  }
+
+  function settings(s, onToggle) {
+    open({ title: '设置', body: switches(s, onToggle), actions: [{ label: '好的', go: true, onClick: close }] });
+  }
+
+  function help() {
+    const rules = [
+      [0, '点一张亮着的牌，它会飞进下方的 7 格卡槽。'],
+      [3, '卡槽里凑齐 3 张相同的，就会消除。'],
+      [4, '卡槽塞满 7 张就输了；变暗的牌被压住，暂时点不了。'],
+      [1, '道具每关各 1 次：移出、撤回、洗牌；输了还能复活 1 次。'],
+      [13, '今日挑战每天一关，大家玩的都是同一关：第 1 关热身，第 2 关才是真正的考验。'],
+    ];
+    const body = `<ul class="rules">${rules.map(([k, t]) => `<li>${iconSVG(k, 30)}<span>${t}</span></li>`).join('')}</ul>`;
+    open({ title: '怎么玩', body, actions: [{ label: '明白了，汪！', go: true, onClick: close }] });
+  }
+
+  function practice(levels, onPick) {
+    const list = document.createElement('div');
+    list.className = 'choice-list';
+    const items = [['easy', '轻松消遣，适合练手'], ['normal', '要动点脑子'], ['hard', '和第 2 关差不多难'], ['hell', '不保证有解，致敬原版']];
+    for (const [key, desc] of items) {
+      const L = levels[key];
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'choice';
+      b.innerHTML = `<b>${L.name}</b><small>${L.kinds} 种图案 · ${L.kinds * L.perKind} 张 · ${desc}</small>`;
+      b.addEventListener('click', () => onPick(key));
+      list.appendChild(b);
+    }
+    open({ title: '自由练习', body: list, actions: [{ label: '返回', onClick: close }] });
+  }
+
+  function pack({ selected, peers, stats, first }, onPick) {
+    const box = document.createElement('div');
+    const grid = document.createElement('div');
+    grid.className = 'team-grid';
+    for (const b of BREEDS) {
+      const on = b.key === selected;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `team${on ? ' is-on' : ''}`;
+      btn.setAttribute('aria-pressed', String(on));
+      const n = peers && peers.teams[b.key];
+      btn.innerHTML = `${dogHeadSVG(b.key, on ? 'happy' : 'idle')}<b>${b.team}</b><small>${n ? `在线 ${n}` : '&nbsp;'}</small>`;
+      btn.addEventListener('click', () => onPick(b.key));
+      grid.appendChild(btn);
+    }
+    box.appendChild(grid);
+    if (!first) {
+      const p = document.createElement('p');
+      p.className = 'pack-stats';
+      p.textContent = `今日挑战通关 ${stats.dailyWins} 次 · 连续打卡 ${stats.streak} 天 · 为狗群贡献 ${stats.dogs} 只狗`;
+      box.appendChild(p);
+    }
+    open({
+      title: first ? '选一个狗群加入' : '我的狗群',
+      body: box,
+      dismissible: !first,
+      actions: first ? [] : [{ label: '好的', go: true, onClick: close }],
+    });
+  }
+
+  function pause(h) {
+    open({
+      title: '暂停一下',
+      body: switches(h.settings, h.onToggle),
+      onDismiss: h.onResume,
+      actions: [
+        { label: '继续游戏', go: true, onClick: () => { close(); h.onResume(); } },
+        { label: '重开本关', onClick: () => { close(); h.onRestart(); } },
+        { label: '回到首页', onClick: () => { close(); h.onHome(); } },
+      ],
+    });
+  }
+
+  function intro2(L, onStart) {
+    open({
+      title: '热身结束！',
+      dismissible: false,
+      body: `<div class="modal-dog">${dogHeadSVG(breed, 'shock')}</div><p class="intro-big">第 2 关</p><p>${L.kinds} 种图案、${L.kinds * L.perKind} 张牌、${L.layers} 层叠叠乐，两侧还有盲盒牌堆。道具各 1 次，复活 1 次，祝你好运，汪！</p>`,
+      actions: [{ label: '开始第 2 关', go: true, onClick: () => { close(); onStart(); } }],
+    });
+  }
+
+  function result(info, h) {
+    const won = info.result === 'won';
+    const body = document.createElement('div');
+    body.innerHTML = `
+      <div class="modal-dog">${dogHeadSVG(breed, won ? 'cheer' : 'sad')}</div>
+      <div class="stats">
+        <div class="stat"><small>用时</small><b>${fmtTime(info.seconds)}</b></div>
+        <div class="stat"><small>${won ? '拿牌' : '剩余'}</small><b>${won ? `${info.moves} 次` : `${info.remaining} 张`}</b></div>
+        <div class="stat"><small>道具</small><b>${info.propsUsed} 次</b></div>
+      </div>
+      <div class="card-wrap" id="card-wrap">战绩图生成中…</div>
+      <p class="card-tip" id="card-tip" hidden>手机上可以长按图片保存</p>
+      <div class="roast" id="roast" hidden></div>`;
+    const title = won ? (info.key === 'daily2' ? '今日挑战通关！' : '通关成功！') : '卡槽满啦！';
+    const actions = won
+      ? [
+        { key: 'next', label: h.nextLabel, go: true, onClick: h.onNext },
+        { key: 'save', label: '保存战绩图', onClick: h.onSave, hidden: !h.canSave },
+        { key: 'roast', label: 'AI 狗评', onClick: h.onRoast, hidden: !h.canRoast },
+        { key: 'home', label: '回到首页', onClick: h.onHome },
+      ]
+      : [
+        { key: 'revive', label: '复活一次（移出 3 张）', go: true, onClick: h.onRevive, hidden: !info.canRevive },
+        { key: 'retry', label: '重新开始', go: !info.canRevive, onClick: h.onRetry },
+        { key: 'save', label: '保存战绩图', onClick: h.onSave, hidden: !h.canSave },
+        { key: 'roast', label: 'AI 狗评', onClick: h.onRoast, hidden: !h.canRoast },
+        { key: 'home', label: '回到首页', onClick: h.onHome },
+      ];
+    return open({ title, body, actions, dismissible: false });
+  }
+  function setCard(url) {
+    const wrap = $('card-wrap');
+    if (!wrap) return;
+    wrap.textContent = '';
+    const img = new Image();
+    img.alt = '本局战绩图';
+    img.src = url;
+    wrap.appendChild(img);
+    const tip = $('card-tip');
+    if (tip) tip.hidden = false;
+  }
+  function cardFailed() {
+    const wrap = $('card-wrap');
+    if (wrap) wrap.textContent = '战绩图生成失败';
+  }
+  function roastText(text) {
+    const r = $('roast');
+    if (!r) return;
+    r.hidden = !text;
+    r.textContent = text;
+  }
+
+  return {
+    show, home, hud, denyProp, slotDanger, shakeSlot,
+    setBreed, setBaseMood, flashMood, say, hush, toast, combo,
+    open, close, isOpen, settings, help, practice, pack, pause, intro2, result, setCard, cardFailed, roastText,
+  };
+}
+```
+
+- [ ] **Step 2: 提交**
+
+```bash
+git add src/ui/screens.js
+git commit -m "feat: 首页、HUD、弹层与吉祥物界面层"
+```
+
+---
+
+### Task 15: 主流程编排
+
+**Files:**
+- Create: `src/ui/main.js`
+
+**Interfaces:**
+- Consumes：Task 2–14 的全部接口
+- Produces：
+  - 页面入口，启动时经由 `hotBoot` 进入。
+  - URL 带 `?debug` 或 `#debug` 时，暴露 `globalThis.__dog`，包含：
+    - `state()`、`actions()`、`solution()`
+    - `level(key, seed)`
+    - `step()`、`autoplay(ms)`
+    - `save()`、`platform()`
+  - URL 带 `?seed=` 时，固定自由练习的种子。
+
+- [ ] **Step 1: 实现**
+
+```js file=src/ui/main.js
+// 启动与流程编排：存档、音频、平台能力、对局生命周期、结算、调试接口与热更新续玩
+import { LEVELS, generateLevel } from '../core/generator.js';
+import { createGame } from '../core/game.js';
+import { bestMove } from '../core/bot.js';
+import { ICONS, iconSymbolsSVG } from '../art/icons.js';
+import { BREEDS } from '../art/dogs.js';
+import { createAudio } from '../audio/audio.js';
+import { createStore, dateKey } from './storage.js';
+import { initPlatform, setPresence, broadcastWin, aiRoast, hotBoot, hotSnapshot } from './platform.js';
+import { createFx } from './fx.js';
+import { renderShareCard, saveCard } from './share.js';
+import { createBoard } from './board.js';
+import { createScreens } from './screens.js';
+
+const COMBO_TEXT = ['', '', '汪汪！', '汪汪汪！', '狗王驾到！'];
+const TEAM = Object.fromEntries(BREEDS.map((b) => [b.key, b]));
+const $ = (id) => document.getElementById(id);
+
+function localStorageOrNull() {
+  try { return globalThis.localStorage || null; } catch { return null; }
+}
+
+function boot(hot) {
+  const store = createStore(localStorageOrNull());
+  const save = store.data;
+  const today = dateKey();
+  const params = new URLSearchParams(globalThis.location ? globalThis.location.search : '');
+  const audio = createAudio();
+  audio.setMusic(save.settings.music);
+  audio.setSfx(save.settings.sfx);
+  document.body.insertAdjacentHTML('afterbegin', iconSymbolsSVG());
+  const ui = createScreens();
+  ui.setBreed(save.team || 'shiba');
+  const fx = createFx($('fx'));
+  let peers = null;
+  let s = null;
+  let card = null;
+  let roastCtl = null;
+
+  const platform = initPlatform({
+    onPeers: (p) => { peers = p; renderHome(); },
+    onWinBroadcast: (team, fromMe) => { if (!fromMe) ui.toast(`一位${team ? TEAM[team].team : ''}狗友刚刚通关了今日第 2 关！`); },
+    onChange: () => { renderHome(); syncPresence(); },
+  });
+  const board = createBoard({ screen: $('game'), stage: $('stage'), slotEl: $('slot'), playfield: $('playfield'), onTap: tap });
+
+  const vibrate = (pattern) => {
+    if (!save.settings.vibrate || !navigator.vibrate) return;
+    try { navigator.vibrate(pattern); } catch { /* 不支持震动 */ }
+  };
+  const playing = () => !!s && s.game.state.status === 'playing';
+  const elapsed = () => (s ? s.elapsed + (s.running ? performance.now() - s.since : 0) : 0);
+  const pauseClock = () => { if (s && s.running) { s.elapsed += performance.now() - s.since; s.running = false; } };
+  const resumeClock = () => { if (s && !s.running && playing()) { s.since = performance.now(); s.running = true; } };
+  const newPracticeSeed = () => params.get('seed') || `p-${Date.now().toString(36)}`;
+
+  // 首次交互时解锁音频并开始背景音乐（浏览器要求用户手势）
+  const unlock = () => {
+    audio.unlock();
+    if (save.settings.music) audio.startMusic();
+    removeEventListener('pointerdown', unlock, true);
+    removeEventListener('keydown', unlock, true);
+  };
+  addEventListener('pointerdown', unlock, true);
+  addEventListener('keydown', unlock, true);
+
+  function syncPresence() {
+    setPresence(platform, { team: save.team, screen: s ? 'game' : 'home', level: s ? s.key : null });
+  }
+
+  function renderHome() {
+    const d = store.peekDay(today);
+    ui.home({
+      dailySub: d.l2 ? '今日已通关 ✓ 再挑战一次' : d.l1 ? '第 2 关 · 真正的考验' : '第 1 关 · 热身',
+      teamName: save.team ? TEAM[save.team].team : '还没加入狗群',
+      streak: store.currentStreak(today),
+      online: peers,
+    });
+  }
+
+  function goHome() {
+    pauseClock();
+    s = null;
+    board.clear();
+    audio.setTension(0);
+    ui.slotDanger(false);
+    ui.hush();
+    ui.setBaseMood('idle');
+    ui.show('home');
+    renderHome();
+    syncPresence();
+  }
+
+  function updateHud() {
+    const g = s.game;
+    const st = g.state;
+    ui.hud({
+      name: s.mode === 'practice' ? `练习 · ${g.level.name}` : g.level.name,
+      left: st.remaining,
+      props: st.props,
+      can: { moveOut: g.canMoveOut(), undo: g.canUndo(), shuffle: g.canShuffle() },
+    });
+  }
+
+  function startLevel(key, seedStr, mode, actions = null) {
+    const level = generateLevel(key, seedStr);
+    const game = createGame(level);
+    if (actions && !game.replay(actions)) console.warn('续玩回放中途失败，保留已回放的部分');
+    s = { game, key, seedStr, mode, elapsed: 0, since: performance.now(), running: true, busy: false, queue: [], warned: false };
+    ui.close();
+    ui.show('game');
+    board.mount(game);
+    fx.resize();
+    ui.setBaseMood('idle');
+    ui.slotDanger(false);
+    audio.setTension(0);
+    updateHud();
+    store.recordPlay();
+    syncPresence();
+    if (key === 'daily1' && !actions) {
+      board.hint(level.solution[0]);
+      ui.say('点亮着的牌，凑齐 3 张就能消除！', 3200);
+    } else {
+      ui.say(key === 'daily2' ? '第 2 关来了，稳住别慌！' : '开干，汪！', 2000);
+    }
+  }
+
+  function tap(id) {
+    if (!playing() || ui.isOpen()) return;
+    if (s.busy) {
+      if (s.queue.length < 3) s.queue.push(id);
+      return;
+    }
+    pick(id);
+  }
+
+  function pick(id) {
+    const g = s.game;
+    const t = g.state.tiles[id];
+    const events = g.pick(id);
+    if (!events) {
+      if (t && (t.zone === 'board' || t.zone === 'buffer')) {
+        board.deny(id);
+        audio.play('deny');
+        ui.flashMood('shock', 700);
+        ui.say('这张被压住啦，先拿上面的', 1300);
+      }
+      return;
+    }
+    board.clearHint();
+    audio.play('tap');
+    vibrate(8);
+    run(events);
+  }
+
+  async function run(events) {
+    const cur = s;
+    cur.busy = true;
+    await board.play(events, {
+      onLand: () => audio.play('place'),
+      onEliminate: (ev, c) => {
+        audio.play('match', { combo: ev.combo });
+        if (ev.combo >= 2) audio.play('woof', { variant: ev.combo >= 3 ? 1 : 0 });
+        vibrate([15, 30, 15]);
+        fx.burst(c.x, c.y, ICONS[ev.kind].color);
+        if (ev.combo >= 2) ui.combo(COMBO_TEXT[Math.min(ev.combo, 4)], c.x, c.y - 24);
+        ui.flashMood('happy', 900);
+      },
+    });
+    if (s !== cur) return;
+    cur.busy = false;
+    afterAction(events);
+    while (s === cur && playing() && !cur.busy && cur.queue.length && !ui.isOpen()) pick(cur.queue.shift());
+  }
+
+  function afterAction(events) {
+    const st = s.game.state;
+    updateHud();
+    const n = st.slot.length;
+    audio.setTension(n >= 6 ? 1 : n === 5 ? 0.5 : 0);
+    ui.slotDanger(n >= 5 && st.status === 'playing');
+    if (st.status === 'playing') {
+      if (n >= 5 && !s.warned) {
+        s.warned = true;
+        audio.play('warn');
+        ui.setBaseMood('worried');
+        ui.say(n >= 6 ? '只剩 1 格了！' : '卡槽快满了，稳住！', 1600);
+      } else if (n < 5 && s.warned) {
+        s.warned = false;
+        ui.setBaseMood('idle');
+      }
+    }
+    if (events.some((e) => e.type === 'win')) onWin();
+    else if (events.some((e) => e.type === 'lose')) onLose();
+  }
+
+  function useProp(name) {
+    if (!playing() || s.busy || ui.isOpen()) return;
+    const g = s.game;
+    const events = name === 'moveOut' ? g.moveOut() : name === 'undo' ? g.undo() : g.shuffle();
+    if (!events) {
+      ui.denyProp(name);
+      audio.play('deny');
+      const st = g.state;
+      const why = st.props[name] <= 0 ? '这个道具用完啦'
+        : name === 'undo' ? (st.slot.length ? '刚消除完，撤回不了哦' : '卡槽是空的，没得撤回')
+          : name === 'moveOut' ? '卡槽是空的，不用移出' : '场上没有牌可洗了';
+      ui.say(why, 1500);
+      return;
+    }
+    audio.play(name);
+    board.clearHint();
+    ui.say(name === 'moveOut' ? '挪出去 3 张，喘口气' : name === 'undo' ? '刚才那步不算！' : '重新洗牌，汪！', 1400);
+    run(events);
+  }
+
+  function summary(result) {
+    const st = s.game.state;
+    const u = st.used;
+    return {
+      result, key: s.key, mode: s.mode, levelName: s.game.level.name, dateKey: today,
+      seconds: Math.round(elapsed() / 1000), moves: st.moves, remaining: st.remaining,
+      used: u, propsUsed: u.moveOut + u.undo + u.shuffle + u.revive,
+      breedKey: save.team || 'shiba', teamName: save.team ? TEAM[save.team].team : '',
+      streak: store.currentStreak(today), dogs: save.stats.dogsContributed, canRevive: s.game.canRevive(),
+    };
+  }
+
+  function onWin() {
+    pauseClock();
+    const cur = s;
+    store.recordWin({ daily: cur.mode === 'daily', level: cur.key, key: today });
+    audio.setTension(0);
+    audio.play('win');
+    vibrate([20, 40, 20, 40, 60]);
+    fx.confetti();
+    ui.setBaseMood('cheer');
+    ui.slotDanger(false);
+    if (cur.mode === 'daily' && cur.key === 'daily1') {
+      setTimeout(() => { if (s === cur) ui.intro2(LEVELS.daily2, () => startLevel('daily2', `dog-${today}`, 'daily')); }, 700);
+      return;
+    }
+    if (cur.mode === 'daily' && cur.key === 'daily2') broadcastWin(platform, save.team);
+    setTimeout(() => { if (s === cur) showResult(summary('won')); }, 800);
+  }
+
+  function onLose() {
+    pauseClock();
+    const cur = s;
+    audio.setTension(0);
+    audio.play('lose');
+    vibrate([80, 50, 120]);
+    ui.setBaseMood('sad');
+    ui.shakeSlot();
+    if (cur.mode === 'daily') store.recordLoss(today, cur.game.state.remaining);
+    setTimeout(() => { if (s === cur) showResult(summary('lost')); }, 700);
+  }
+
+  function showResult(info) {
+    const cur = s;
+    card = null;
+    const daily2Won = info.result === 'won' && info.key === 'daily2';
+    ui.result(info, {
+      canSave: !platform.inClaude || !!platform.downloads,
+      canRoast: !!platform.sample,
+      nextLabel: cur.mode === 'practice' ? '再来一局' : daily2Won ? '再挑战一次' : '下一关',
+      onNext: () => startLevel(cur.key, cur.mode === 'practice' ? newPracticeSeed() : cur.seedStr, cur.mode),
+      onRetry: () => startLevel(cur.key, cur.seedStr, cur.mode),
+      onRevive: () => {
+        const events = cur.game.revive();
+        if (!events) return;
+        ui.close();
+        audio.play('revive');
+        ui.setBaseMood('idle');
+        cur.warned = false;
+        ui.say('复活成功，再来！', 1500);
+        resumeClock();
+        run(events);
+      },
+      onHome: () => { ui.close(); goHome(); },
+      onSave: async (btn) => {
+        if (!card) { ui.toast('战绩图还在生成，稍等一下'); return; }
+        btn.disabled = true;
+        const r = await saveCard(card.blob, platform);
+        btn.disabled = false;
+        const tips = { saved: '战绩图已保存', downloaded: '战绩图已下载', shared: '已打开分享', declined: '已取消保存' };
+        ui.toast(tips[r] || '保存失败，可以长按图片保存');
+      },
+      onRoast: async (btn) => {
+        btn.disabled = true;
+        ui.roastText('狗子正在酝酿毒舌……');
+        if (roastCtl) roastCtl.abort();
+        roastCtl = new AbortController();
+        try {
+          await aiRoast(platform, info, (text) => ui.roastText(text), roastCtl.signal);
+        } catch (e) {
+          const code = e && e.code;
+          if (code === 'not_granted' || code === 'sampling_disabled') {
+            ui.roastText('狗子这次不想说话（没有获得 AI 授权）');
+            btn.hidden = true;
+            return;
+          }
+          ui.roastText(code === 'rate_limited' ? '狗子说累了，过一会儿再来' : code === 'cancelled' ? '' : '狗子走神了，再点一次试试');
+        }
+        btn.disabled = false;
+      },
+    });
+    renderShareCard(info).then((c) => { card = c; ui.setCard(c.url); }).catch(() => ui.cardFailed());
+  }
+
+  function pause() {
+    if (!s || ui.isOpen()) return;
+    pauseClock();
+    ui.pause({
+      settings: save.settings,
+      onToggle: toggleSetting,
+      onResume: () => resumeClock(),
+      onRestart: () => startLevel(s.key, s.seedStr, s.mode),
+      onHome: () => goHome(),
+    });
+  }
+
+  function toggleSetting(name, value) {
+    store.setSetting(name, value);
+    if (name === 'music') {
+      audio.setMusic(value);
+      if (value) audio.startMusic(); else audio.stopMusic();
+    }
+    if (name === 'sfx') audio.setSfx(value);
+    if (name === 'vibrate' && value) vibrate(20);
+  }
+
+  function openPack(first) {
+    ui.pack({
+      selected: save.team,
+      peers,
+      first,
+      stats: { dailyWins: save.stats.dailyWins, streak: store.currentStreak(today), dogs: save.stats.dogsContributed },
+    }, (key) => {
+      store.setTeam(key);
+      ui.setBreed(key);
+      audio.play('woof', { variant: key === 'husky' || key === 'golden' ? 2 : key === 'teddy' || key === 'corgi' ? 1 : 0 });
+      renderHome();
+      syncPresence();
+      if (first) {
+        ui.close();
+        ui.toast(`欢迎加入${TEAM[key].team}！`);
+      } else {
+        openPack(false);
+      }
+    });
+  }
+
+  $('btn-daily').addEventListener('click', () => {
+    audio.play('button');
+    startLevel(store.peekDay(today).l1 ? 'daily2' : 'daily1', `dog-${today}`, 'daily');
+  });
+  $('btn-practice').addEventListener('click', () => {
+    audio.play('button');
+    ui.practice(LEVELS, (key) => startLevel(key, newPracticeSeed(), 'practice'));
+  });
+  $('btn-pack').addEventListener('click', () => { audio.play('button'); openPack(false); });
+  $('btn-settings').addEventListener('click', () => { audio.play('button'); ui.settings(save.settings, toggleSetting); });
+  $('btn-help').addEventListener('click', () => { audio.play('button'); ui.help(); });
+  $('btn-pause').addEventListener('click', () => { audio.play('button'); pause(); });
+  for (const name of ['moveOut', 'undo', 'shuffle']) $(`prop-${name}`).addEventListener('click', () => useProp(name));
+  addEventListener('resize', () => { fx.resize(); board.resize(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && playing() && !ui.isOpen()) pause(); });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && playing() && !ui.isOpen()) pause(); });
+
+  if (params.has('debug') || (globalThis.location && globalThis.location.hash === '#debug')) {
+    const dbg = {
+      state: () => (s ? s.game.state : null),
+      actions: () => (s ? s.game.actions : []),
+      solution: () => (s ? s.game.level.solution : null),
+      level: (key = 'daily1', seed = `dog-${today}`) => startLevel(key, seed, key.startsWith('daily') ? 'daily' : 'practice'),
+      step() {
+        if (!playing() || ui.isOpen()) return false;
+        const g = s.game;
+        const acts = g.actions;
+        const sol = g.level.solution;
+        const onPath = !!sol && acts.every((a, i) => a[0] === 'p' && a[1] === sol[i]);
+        const id = onPath && acts.length < sol.length ? sol[acts.length] : bestMove(g).id;
+        if (id >= 0) tap(id);
+        return true;
+      },
+      autoplay(ms = 150) {
+        const iv = setInterval(() => { if (!dbg.step()) clearInterval(iv); }, ms);
+        return iv;
+      },
+      save: () => save,
+      platform: () => platform,
+    };
+    globalThis.__dog = dbg;
+  }
+
+  hotSnapshot(() => (s ? { screen: 'game', key: s.key, seedStr: s.seedStr, mode: s.mode, actions: s.game.actions } : { screen: 'home' }));
+  renderHome();
+  syncPresence();
+  if (hot && hot.screen === 'game' && LEVELS[hot.key] && typeof hot.seedStr === 'string') {
+    startLevel(hot.key, hot.seedStr, hot.mode === 'practice' ? 'practice' : 'daily', Array.isArray(hot.actions) ? hot.actions : null);
+  } else if (!save.team) {
+    setTimeout(() => openPack(true), 300);
+  }
+}
+
+hotBoot(boot);
+```
+
+- [ ] **Step 2: 构建并运行全部测试**
+
+Run: `npm test && node build.mjs`
+Expected:
+- 所有测试 PASS。
+- 构建打印 `dist/index.html xx KB，dist/artifact.html xx KB`，不报外部资源错误。
+
+- [ ] **Step 3: 提交**
+
+```bash
+git add src/ui/main.js dist
+git commit -m "feat: 主流程编排、结算、调试接口与热更新续玩"
+```
+
+---
+
+### Task 16: 浏览器验收
+
+**Files:**
+- 视验收结果修改 `src/**`（每个问题单独提交）
+
+- [ ] **Step 1: 启动预览服务**
+
+用内置浏览器的 `preview_start` 启动 `gou-le-ge-gou`，然后打开 `http://localhost:<port>/dist/index.html?debug`。
+
+- [ ] **Step 2: 手机尺寸走查**
+
+`resize_window` 设为 mobile（375×812），然后依次检查：
+- 首次打开会弹出「选一个狗群加入」，点柴犬后弹层关闭，首页显示「柴犬队」。
+- 点「今日挑战」进入第 1 关：牌按层落下，第一张可点的牌带提示光圈，被压住的牌变暗。
+- 真实点击：点一张空闲牌，它会飞进卡槽；点被压住的牌，牌会抖动，气泡提示「被压住」。
+- 用 `__dog.autoplay(120)` 打通第 1 关，确认出现「热身结束」弹层；点「开始第 2 关」。
+- 第 2 关：两侧有盲盒堆。依次用一次移出、撤回、洗牌，确认动画和角标都正确，第二次点击会提示「用完啦」。
+- 用 `__dog.autoplay(60)` 跑到结束：失败时弹层里有「复活一次」，点击后继续；最终会进入结算弹层，里面有战绩图。
+- 控制台零报错（用 `read_console_messages` 检查）。
+
+- [ ] **Step 3: 桌面尺寸与深色模式**
+
+- `resize_window` 设为 desktop：游戏区居中显示，最大宽度 480px，带手机外框。
+- `resize_window({ colorScheme: 'dark' })`：切到夜晚后院配色，文字清晰可读，牌面对比度足够。
+- 每种形态截图一次，留作验收记录。
+
+- [ ] **Step 4: Artifact 片段冒烟**
+
+在 `dist/artifact.html` 里确认：
+- 以 `<title>狗了个狗</title>` 开头。
+- 不包含 doctype、html、head、body 标签。
+- 大小小于 1MB。
+
+- [ ] **Step 5: 修复发现的问题**
+
+每个问题都按「复现 → 修复 → 重新验证」处理，并单独提交，提交信息写成 `fix: …`。
+
+---
+
+### Task 17: 整体代码评审
+
+- [ ] **Step 1: 生成评审包**
+
+运行 `review-package <开发分支起点> HEAD`。
+
+- [ ] **Step 2: 派发整体评审**
+
+派最强模型的评审子代理，使用 superpowers 的 `requesting-code-review` 模板。重点检查：
+- 逻辑与表现层之间的一致性：事件、视觉卡槽、输入队列。
+- 平台能力降级。
+- 零外链。
+- 可访问性。
+- 性能（192 张牌时的 DOM 和动画）。
+
+- [ ] **Step 3: 修复**
+
+把全部 Critical 和 Important 发现交给一个修复子代理处理；修完后重跑 `npm test && node build.mjs`，再做一次浏览器冒烟。
+
+---
+
+### Task 18: 发布
+
+- [ ] **Step 1: 合并到 main**
+
+先确认 `npm test` 全部通过、构建产物是最新的，然后把开发分支快进合并到 `main`。
+
+- [ ] **Step 2: 发布 Artifact**
+
+- 先加载 artifact-capabilities 技能。
+- 用 Artifact 工具发布 `dist/artifact.html`，参数如下：
+  - `icon: "game"`
+  - `capabilities: { room: { topics: { win: 'interact' } }, sample: {}, downloads: true }`
+  - `description`：一句话介绍。
+
+- [ ] **Step 3: 发布 GitHub Pages**
+
+```bash
+gh repo create Kline-x/gou-le-ge-gou --public --description "狗了个狗：狗狗主题的三消堆叠网页小游戏（羊了个羊玩法）" --source . --remote origin
+git push -u origin main
+```
+
+接下来用一个临时 worktree 创建只含 `index.html` 的孤儿分支 `gh-pages`，并推送：
+
+```bash
+git worktree add --detach ../gou-pages
+cd ../gou-pages && git checkout --orphan gh-pages && git rm -rf . -q
+cp ../gou-le-ge-gou/dist/index.html index.html && touch .nojekyll
+git add index.html .nojekyll && git commit -m "发布：狗了个狗 GitHub Pages"
+git push -u origin gh-pages
+cd ../gou-le-ge-gou && git worktree remove ../gou-pages --force
+gh api -X POST repos/Kline-x/gou-le-ge-gou/pages -f "source[branch]=gh-pages" -f "source[path]=/"
+```
+
+轮询 `gh api repos/Kline-x/gou-le-ge-gou/pages/builds/latest`，直到状态为 `built`，然后用内置浏览器打开 `https://kline-x.github.io/gou-le-ge-gou/` 做一次冒烟验证。
+
+- [ ] **Step 4: 文档同步与交接**
+
+- README 写清楚：玩法、两个链接、本地运行方式、调试接口。
+- 同步 `E:\ai-md\claude\plan\狗了个狗游戏设计方案.md`。
+- 写交接快照 `E:\ai-md\claude\handoff\gou-le-ge-gou\2026-09-23-狗了个狗首版发布.md`。
+- 更新记忆里的进度指针。
