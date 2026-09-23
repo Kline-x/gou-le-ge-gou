@@ -436,7 +436,14 @@ gou-le-ge-gou/
 
 ## 11. 发布
 
-1. 用 `npm run build` 生成 `dist/index.html` 和 `dist/artifact.html`。
+0. （执行中新增）GitHub Pages 在中国大陆无法访问，用户指定改用 jsDelivr。
+   - jsDelivr 会把 `.html` 按 `text/plain` 返回，但 `.xhtml` 按 `application/xhtml+xml` 返回，并且不带 CSP，所以构建会额外产出 `dist/index.xhtml`：
+     - 带 XML 声明和 XHTML 命名空间；
+     - 样式与脚本包进 CDATA；
+     - 模板和运行时插入的片段都是良构 XML，由 `tests/xhtml.test.mjs` 检查。
+   - 发布方式：给 main 打标签（比如 `v1.0.0`），国内链接为 `https://cdn.jsdelivr.net/gh/Kline-x/gou-le-ge-gou@v1.0.0/dist/index.xhtml`。
+   - 备用镜像：fastly、gcore。
+1. 用 `npm run build` 生成 `dist/index.html`、`dist/artifact.html`、`dist/index.xhtml`。
 2. 把 `dist/artifact.html` 发布为 Claude Artifact，按第 8 节声明能力，icon 用 `game`。
 3. 创建 GitHub 公开仓库 `Kline-x/gou-le-ge-gou`：
    - 源码推到 `main` 分支。

@@ -6,8 +6,13 @@
 
 ## 在线玩
 
-- 公开链接（GitHub Pages）：https://kline-x.github.io/gou-le-ge-gou/
-- 另有 claude.ai Artifact 版（作者私有，分享后可看）。在 claude.ai 里打开时，会多出在线狗友和 AI 狗评两项功能。
+- **国内可用（jsDelivr CDN）**：https://cdn.jsdelivr.net/gh/Kline-x/gou-le-ge-gou@v1.0.0/dist/index.xhtml
+  - 备用镜像：https://fastly.jsdelivr.net/gh/Kline-x/gou-le-ge-gou@v1.0.0/dist/index.xhtml
+  - 备用镜像：https://gcore.jsdelivr.net/gh/Kline-x/gou-le-ge-gou@v1.0.0/dist/index.xhtml
+- GitHub Pages（海外）：https://kline-x.github.io/gou-le-ge-gou/
+- claude.ai Artifact 版：在 claude.ai 里打开时，会多出在线狗友和 AI 狗评两项功能。
+
+> 为什么是 `.xhtml`：jsDelivr 会把 `.html` 按纯文本返回（防止被当成网站托管），浏览器只会显示源码。`.xhtml` 会按 `application/xhtml+xml` 返回，浏览器能正常运行。构建时会同时产出 `dist/index.xhtml`；模板和运行时插入的片段都保持良构 XML，由 `tests/xhtml.test.mjs` 把关。标签地址的内容是固定的，发布新版本时打新标签（比如 `v1.0.1`）即可。
 
 ## 玩法
 
